@@ -58,6 +58,15 @@ case "${cmd}" in
     lint)
         run_in_dev golangci-lint run "${@:-./...}"
         ;;
+    fmt)
+        # gofmt gate (AGENTS.md §2). With no argument it lists files that are
+        # not gofmt-clean (empty output == clean), mirroring `gofmt -l .`.
+        if [ "$#" -eq 0 ]; then
+            run_in_dev gofmt -l .
+        else
+            run_in_dev gofmt "$@"
+        fi
+        ;;
     shell)
         podman run --rm -it \
             -v "${REPO_ROOT}:/work:z" -w /work \
