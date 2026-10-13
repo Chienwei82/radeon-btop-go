@@ -185,18 +185,19 @@ completions in [packaging/completions/](packaging/completions/).
 ## Configuration
 
 Precedence, lowest to highest: built-in defaults → `$GPUTOP_CONFIG` →
-`~/.config/gputop/gputop.toml` → `~/.gputoprc` → the `[state]` section gputop
-saved for itself → CLI flags.
+`~/.config/gputop/gputop.yaml` → the `state:` block gputop saved for itself →
+CLI flags.
 
 Every key is optional; unknown keys are reported as warnings and ignored, so
 a file written for a newer release still works today. See
-[gputop.example.toml](gputop.example.toml) — the key set is shared with the
-Python build.
+[gputop.example.yaml](gputop.example.yaml) — the key set is the same as the
+Python build's, but the format is YAML, so a Python-era `.toml` file is not
+read.
 
-`[state]` is written by gputop itself (theme, interval, sort, filter, view
-choices) into `~/.config/gputop/config.toml` (`$GPUTOP_STATE` overrides the
-path). The write is atomic and preserves the rest of the file byte-for-byte,
-comments included.
+`state:` is written by gputop itself (theme, interval, sort, filter, view
+choices) into `~/.config/gputop/config.yaml` (`$GPUTOP_STATE` overrides the
+path). The write is atomic and edits the parsed document in place, so the rest
+of the file — comments and key order included — is preserved.
 
 ---
 

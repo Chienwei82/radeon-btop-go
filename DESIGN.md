@@ -53,7 +53,7 @@ out explicitly.
 | `readers/radeontop` | `internal/readers/radeontop` | `exec.CommandContext`, both pipes |
 | `sampler/engine` | `internal/sampler` | goroutine + chan + `atomic.Pointer` view |
 | `ui/app,panels,…` | `internal/ui` | bubbletea Model + pure `string` builders |
-| `cli,config,check,control,state,sessionlog` | `internal/cli,config,check,control,state,sessionlog` | `flag` stdlib; hand-rolled `[state]` |
+| `cli,config,check,control,state,sessionlog` | `internal/cli,config,check,control,state,sessionlog` | `flag` stdlib; goccy/go-yaml + AST `state:` write-back |
 
 ### Go deltas vs Python (deliberate)
 
@@ -62,8 +62,11 @@ out explicitly.
   replaces the free-threaded qualification job.
 - Textual + Rich → bubbletea v2 + lipgloss + bubbles. No `Pilot` equivalent:
   UI tests are golden tests over pure render functions + key-model tests.
-- `tomllib` + `tomli_w` → BurntSushi/toml (read) + hand-rolled `[state]`
-  section replacement (comment preservation; no Go writer keeps comments).
+- `tomllib` + `tomli_w` → goccy/go-yaml. YAML rather than TOML because this
+  port owes functional parity, not file compatibility, and goccy round-trips
+  comments through the AST (`parser.ParseComments` + `Path.ReplaceWithNode`):
+  the `state:` block is updated in place instead of being re-emitted, so key
+  order and every comment in the user's file survive.
 - `argparse` → stdlib `flag` + manual `--blocks/--no-blocks` exclusion.
 - `compression.zstd` → klauspost/compress (pure Go).
 - `os.kill`/`pwd` → `syscall.Kill`/`os/user`; CPU meter via

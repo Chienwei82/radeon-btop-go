@@ -56,7 +56,7 @@ delivered as one static Go binary.
 | Architecture | any; no arch-specific code; C-struct padding reproduced manually, never host-native alignment |
 | Go | **1.27.x**, pinned in `Containerfile`; toolchain runs ONLY in podman |
 | UI | bubbletea v2 + lipgloss + bubbles |
-| Go deps | bubbletea, lipgloss, bubbles, BurntSushi/toml, klauspost/compress. No libdrm bindings, no cgo |
+| Go deps | bubbletea, lipgloss, bubbles, goccy/go-yaml, klauspost/compress. No libdrm bindings, no cgo |
 | Optional external binary | `radeontop` on `$PATH`, only for the optional per-block panel |
 
 ### 2.1 Non-negotiable engineering constraints
@@ -64,9 +64,14 @@ delivered as one static Go binary.
 - **Immutability across goroutines**: sampler and UI exchange **immutable
   snapshots** through a bounded `chan` (capacity 1–2; stale dropped). No
   shared mutable state.
-- **TOML config**: BurntSushi/toml for reading; `MetaData.Undecoded()` feeds
-  unknown-key warnings. `[state]` write-back is hand-rolled read-modify-write
-  preserving comments, atomic via tmp+fsync+rename.
+- **YAML config**: goccy/go-yaml for reading (`gputop.example.yaml`; the
+  Python build's TOML is *not* the wire format — this port only owes
+  functional parity, not file compatibility). Unknown keys are found by
+  decoding the same document into a generic map and diffing it against the
+  known key set, which feeds warnings instead of errors. `state:` write-back
+  round-trips the parsed AST (`parser.ParseComments` +
+  `Path.ReplaceWithNode`), so comments and key order survive; atomic via
+  tmp+fsync+rename.
 - **Read-only**: CI job greps `internal/readers` for write calls; a test
   asserts the SCPP/overdrive tables are byte-identical after reading.
 - **Gates**: `gofmt` + `go vet` + `golangci-lint` + `go test ./...` green
@@ -125,7 +130,7 @@ sectioned clock table; unit per entry; bar ratio against the driver's own
 |----|-------------|
 | FR1 | Sampling runs in a **background goroutine**, never blocks the UI; enforces the configured interval (default **1000 ms**) on a monotonic deadline grid; slow ticks drop missed slots, keep phase |
 | FR2 | The UI reads only the **latest** snapshot from a bounded channel (cap 1–2); stale snapshots are discarded, never queued |
-| FR3 | Configurable interval via TOML config and CLI flag |
+| FR3 | Configurable interval via YAML config and CLI flag |
 | FR4 | Per-process table sorted by a user-selectable column; default = total engine usage |
 | FR5 | GPU switching without restarting, by key and by picker overlay |
 | FR6 | APU awareness: iGPU detected → memory panel leads with GTT |

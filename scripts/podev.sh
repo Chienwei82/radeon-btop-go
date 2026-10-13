@@ -40,7 +40,14 @@ case "${cmd}" in
         build_image
         ;;
     build)
-        run_in_dev go build -o gputop "${@:-./...}"
+        # No arguments means "produce the deliverable binary", which is a
+        # single main package: `-o file ./...` is rejected by the toolchain
+        # once there is more than one package to build.
+        if [ "$#" -eq 0 ]; then
+            run_in_dev go build -o gputop ./cmd/...
+        else
+            run_in_dev go build "$@"
+        fi
         ;;
     test)
         run_in_dev go test "${@:-./...}"

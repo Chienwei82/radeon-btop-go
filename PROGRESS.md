@@ -19,7 +19,7 @@ spec docs, packaging skeleton.
 - `go.mod` + `cmd/gputop` skeleton (`--version`)
 - `AGENTS.md`, `.clinerules/memory-bank.md`, `memory-bank/` (7 files)
 - `README.md`, `SPEC.md`, `DESIGN.md`, `PROGRESS.md` (this file),
-  `gputop.example.toml` (key set shared with the Python build)
+  `gputop.example.yaml` (key set shared with the Python build)
 - `packaging/` skeleton (next: man, completions, PKGBUILD)
 
 **Verified**
@@ -27,9 +27,9 @@ spec docs, packaging skeleton.
 - `go.dev/VERSION` = go1.27.2; Docker Hub pull works; `go version go1.27.2
   linux/amd64` inside podman (2026-10-13).
 - Context7 IDs resolved: `/charmbracelet/bubbletea`, `/charmbracelet/lipgloss`,
-  `/charmbracelet/bubbles` (v2.0.0), `/burntsushi/toml`, `/klauspost/compress`.
+  `/charmbracelet/bubbles` (v2.0.0), `/goccy/go-yaml`, `/klauspost/compress`.
   Docs queried: bubbletea v2 messages/views, lipgloss tables/joins/profiles,
-  toml decode/metadata.
+  YAML decode/comment round-trip.
 
 **Assumed**
 
@@ -51,7 +51,7 @@ spec docs, packaging skeleton.
 | Context7 library IDs | measured | resolve calls 2026-10-13 (see above) |
 | bubbletea v2 API shape | measured | context7 query (KeyPressMsg/tea.View/WindowSizeMsg) |
 | lipgloss tables/profiles | measured | context7 query |
-| toml Undecoded/IsDefined | measured | context7 query |
+| YAML comment round-trip (AST) | measured | context7 query, 2026-10-13 (`/goccy/go-yaml`) |
 | golangci-lint ↔ Go 1.27 | assumed | v2.14.0 rebuild pending |
 | gpu_metrics layouts | designed-for | inherited verified claims from Python SPEC §6 |
 | fdinfo accounting | designed-for | inherited verified claims from Python DESIGN §7 |
