@@ -1,0 +1,27 @@
+# Maintainer: gputop contributors
+pkgname=gputop
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A btop-style TUI monitor for AMD Radeon GPUs (amdgpu driver)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/gputop/gputop"
+license=('GPL-3.0-or-later')
+makedepends=('podman')
+optdepends=('radeontop: per-block utilisation panel')
+source=()
+sha256sums=()
+
+build() {
+  # Toolchain runs in podman; the host needs no Go (see AGENTS.md).
+  cd "$startdir/../.."
+  ./scripts/podev.sh build
+}
+
+package() {
+  cd "$startdir/../.."
+  install -Dm755 gputop "$pkgdir/usr/bin/gputop"
+  install -Dm644 packaging/man/gputop.1 "$pkgdir/usr/share/man/man1/gputop.1"
+  install -Dm644 packaging/completions/gputop.bash "$pkgdir/usr/share/bash-completion/completions/gputop"
+  install -Dm644 packaging/completions/gputop.zsh "$pkgdir/usr/share/zsh/site-functions/_gputop"
+  install -Dm644 packaging/completions/gputop.fish "$pkgdir/usr/share/fish/vendor_completions.d/gputop.fish"
+}

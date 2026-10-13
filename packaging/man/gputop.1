@@ -1,0 +1,52 @@
+.TH GPUTOP 1 "2026-10-13" "gputop 0.1.0" "User Commands"
+.SH NAME
+gputop \- btop-style terminal monitor for AMD Radeon GPUs
+.SH SYNOPSIS
+.B gputop
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+Reads what the amdgpu kernel driver already publishes \(utilisation, clocks,
+temperatures, power, throttle reasons, per-process engine time and memory\)
+and shows it in one screen. Never writes to the GPU.
+.SH OPTIONS
+.TP
+\fB\-c\fR, \fB\-\-config\fR \fIPATH\fR
+Config file instead of the default search locations.
+.TP
+\fB\-i\fR, \fB\-\-interval\fR \fISECONDS\fR
+Sampling interval, overriding general.interval_ms.
+.TP
+\fB\-\-dump\fR
+One JSON snapshot to stdout and exit.
+.TP
+\fB\-\-devices\fR
+List discovered GPUs as JSON and exit.
+.TP
+\fB\-\-check\fR
+Report which metrics this machine can provide, and why any are missing.
+.TP
+\fB\-\-log\fR \fIPATH\fR
+Record the session (.csv or .json; + .zst compresses).
+.TP
+\fB\-\-version\fR
+Print version and exit.
+.SH FILES
+.I ~/.config/gputop/gputop.toml
+.RS
+User configuration (see gputop.example.toml).
+.RE
+.I ~/.config/gputop/config.toml
+.RS
+Session state written by gputop itself ($GPUTOP_STATE overrides).
+.RE
+.SH "EXIT STATUS"
+.TP
+.B 0
+Success.
+.TP
+.B 3
+No AMD GPU present.
+.SH "SEE ALSO"
+.BR radeontop (1)
+.SH LICENSE
+GPL-3.0-or-later.

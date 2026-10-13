@@ -1,0 +1,20 @@
+# Binaries and build output
+/gputop
+/bin/
+/dist/
+*.test
+*.out
+
+# Go caches (live in the podman named volume, never here)
+# GOCACHE / GOMODCACHE are redirected by scripts/podev.sh
+
+# Editor / OS noise
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Local agent memory: not part of the product, never pushed
+memory-bank/
+.clinerules/
