@@ -289,7 +289,7 @@ func toBlocks(b *model.GpuBlocks) *blocksJSON {
 		Percent:     percent,
 		Busiest:     busiest,
 		Clocks:      clocks,
-		TimestampNs: int64(b.TimestampNs),
+		TimestampNs: b.TimestampNs,
 	}
 }
 
@@ -390,11 +390,12 @@ type processJSON struct {
 func toProcess(p model.GpuProcess) processJSON {
 	engines := make([]engineJSON, 0, len(p.Engines))
 	for _, u := range p.Engines {
+		// model.Nanoseconds is an alias for int64, so these need no conversion.
 		engines = append(engines, engineJSON{
 			Engine:   u.Engine,
-			TotalNs:  int64(u.TotalNs),
-			DeltaNs:  int64(u.DeltaNs),
-			WindowNs: int64(u.WindowNs),
+			TotalNs:  u.TotalNs,
+			DeltaNs:  u.DeltaNs,
+			WindowNs: u.WindowNs,
 			Percent:  u.Percent(),
 		})
 	}
@@ -409,7 +410,7 @@ func toProcess(p model.GpuProcess) processJSON {
 		VramUsed:      p.VramUsed,
 		GttUsed:       p.GttUsed,
 		CpuUsed:       p.CpuUsed,
-		MemoryUsed:    int64(p.MemoryUsed()),
+		MemoryUsed:    p.MemoryUsed(),
 	}
 }
 
@@ -498,7 +499,7 @@ func Snapshot(snap model.GpuSnapshot, cfg *config.Config) *snapshotJSON {
 	}
 	return &snapshotJSON{
 		Sequence:           snap.Sequence,
-		TimestampNs:        int64(snap.TimestampNs),
+		TimestampNs:        snap.TimestampNs,
 		MetricsABI:         abi,
 		UsingBinaryMetrics: snap.Source.UsingBinaryMetrics(),
 		Devices:            devices,

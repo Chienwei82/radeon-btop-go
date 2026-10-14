@@ -25,7 +25,7 @@ delivered as one static Go binary.
 | G4 | **Robustness** | Missing files, permissions, kernel drift, truncated binaries degrade to `N/A`; never crashes, never hangs |
 | G5 | **Multi-GPU** | Any number of `amdgpu` devices, dGPU + iGPU, runtime switching |
 | G6 | **APU-aware** | iGPU detected → memory panel leads with GTT |
-| G7 | **Read-only** | Never writes to sysfs (CI-grep enforced on `internal/readers`) |
+| G7 | **Read-only** | Never writes to sysfs (AST scan of `internal/readers`, enforced in CI) |
 | G8 | **Single static binary** | `CGO_ENABLED=0`; distroless release; no interpreter on user machines |
 
 ### 1.2 Non-goals
@@ -72,7 +72,12 @@ delivered as one static Go binary.
   round-trips the parsed AST (`parser.ParseComments` +
   `Path.ReplaceWithNode`), so comments and key order survive; atomic via
   tmp+fsync+rename.
-- **Read-only**: CI job greps `internal/readers` for write calls; a test
+- **Read-only**: a CI job parses every non-test file in `internal/readers` and
+  fails on a filesystem mutator, a write-capable open (`os.OpenFile`/`syscall.Open`
+  with write flags, or flags it cannot resolve), a `Write*`/`Truncate`/`Chmod`
+  method, a `fmt.Fprint*` aimed anywhere but a standard stream, or a shell
+  redirect; process launchers are confined to `radeontop.go`. The scan works on
+  the AST, so prose that merely mentions a write does not trip it. A test also
   asserts the SCPP/overdrive tables are byte-identical after reading.
 - **Gates**: `gofmt` + `go vet` + `golangci-lint` + `go test ./...` green
   inside the container before every commit.

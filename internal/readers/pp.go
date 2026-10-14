@@ -100,6 +100,12 @@ func ParseODCVoltage(text string) model.OdcVoltage {
 		}
 	}
 	entries := map[string][]model.OdvEntry{}
+	// order records the first time each domain is seen, because the reference
+	// emits one domain per clock the driver listed *in file order* -- OD_SCLK
+	// before OD_MCLK, not alphabetically. A map alone would make the dump
+	// depend on iteration order, which is the one thing a parity gate cannot
+	// tolerate.
+	var order []string
 	type span struct {
 		lo, hi int
 		unit   model.OdvUnit
@@ -140,6 +146,9 @@ func ParseODCVoltage(text string) model.OdcVoltage {
 		if current != nil {
 			domain = *current
 		}
+		if _, seen := entries[domain]; !seen {
+			order = append(order, domain)
+		}
 		for _, e := range odvEntries(stripped) {
 			entries[domain] = append(entries[domain], model.OdvEntry{
 				State: e.state, Value: e.value, Unit: unitOf(e.unit, defaultUnit),
@@ -147,7 +156,8 @@ func ParseODCVoltage(text string) model.OdcVoltage {
 		}
 	}
 	var domains []model.OdvDomain
-	for name, items := range entries {
+	for _, name := range order {
+		items := entries[name]
 		var lo, hi *int
 		u := defaultUnit
 		if len(items) > 0 {
@@ -160,13 +170,6 @@ func ParseODCVoltage(text string) model.OdcVoltage {
 		domains = append(domains, model.OdvDomain{
 			Name: name, Entries: items, Minimum: lo, Maximum: hi, Unit: u,
 		})
-	}
-	for i := 0; i < len(domains); i++ {
-		for j := i + 1; j < len(domains); j++ {
-			if domains[j].Name < domains[i].Name {
-				domains[i], domains[j] = domains[j], domains[i]
-			}
-		}
 	}
 	return model.OdcVoltage{
 		Domains: domains, VddgfxOffsetMv: offset,

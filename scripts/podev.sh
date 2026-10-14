@@ -35,6 +35,20 @@ run_in_dev() {
         "${IMAGE}" "$@"
 }
 
+# has_package_arg reports whether any argument names a package to operate on.
+# A flag such as -count=1 or -v, or a flag's value, does not: without this,
+# `podev.sh test -count=1` forwarded only the flag and `go test` fell back to
+# the module root, which holds no Go files ("no Go files in /work").
+has_package_arg() {
+    local arg
+    for arg in "$@"; do
+        case "${arg}" in
+            .|./*|/*|*...) return 0 ;;
+        esac
+    done
+    return 1
+}
+
 case "${cmd}" in
     image)
         build_image
@@ -50,13 +64,25 @@ case "${cmd}" in
         fi
         ;;
     test)
-        run_in_dev go test "${@:-./...}"
+        if has_package_arg "$@"; then
+            run_in_dev go test "$@"
+        else
+            run_in_dev go test "$@" ./...
+        fi
         ;;
     vet)
-        run_in_dev go vet "${@:-./...}"
+        if has_package_arg "$@"; then
+            run_in_dev go vet "$@"
+        else
+            run_in_dev go vet "$@" ./...
+        fi
         ;;
     lint)
-        run_in_dev golangci-lint run "${@:-./...}"
+        if has_package_arg "$@"; then
+            run_in_dev golangci-lint run "$@"
+        else
+            run_in_dev golangci-lint run "$@" ./...
+        fi
         ;;
     fmt)
         # gofmt gate (AGENTS.md §2). With no argument it lists files that are

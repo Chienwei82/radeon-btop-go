@@ -1,8 +1,6 @@
 package readers
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -108,29 +106,18 @@ func TestPPMissingFile(t *testing.T) {
 	}
 }
 
-func TestNoWritePathsInReaders(t *testing.T) {
-	entries, err := os.ReadDir(".")
-	if err != nil {
-		t.Fatal(err)
+// TestODCDomainsKeepFileOrder guards the parity contract of the dump: the
+// reference emits one domain per clock the driver listed, in *file* order, and
+// an alphabetical sort put OD_MCLK before OD_SCLK. The read-only scanner that
+// used to live here moved to readonly_test.go, which checks the AST rather than
+// a handful of substrings.
+func TestODCDomainsKeepFileOrder(t *testing.T) {
+	got := ParseODCVoltage(rdna2ODC)
+	if len(got.Domains) != 2 {
+		t.Fatalf("domains = %+v", got.Domains)
 	}
-	var bad []string
-	for _, e := range entries {
-		name := e.Name()
-		if filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(".", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		text := string(data)
-		for _, needle := range []string{"os.WriteFile", "os.Create", "O_WRONLY", "O_RDWR", "O_APPEND", "WriteString"} {
-			if strings.Contains(text, needle) {
-				bad = append(bad, name+":"+needle)
-			}
-		}
-	}
-	if len(bad) > 0 {
-		t.Fatalf("write paths in readers: %v", bad)
+	if got.Domains[0].Name != "sclk" || got.Domains[1].Name != "mclk" {
+		t.Fatalf("domain order = %s,%s, want sclk,mclk",
+			got.Domains[0].Name, got.Domains[1].Name)
 	}
 }

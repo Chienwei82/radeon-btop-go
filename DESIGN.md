@@ -123,7 +123,11 @@ hwmon-only sensors; `fan1_max` derives duty; absent fan ≠ stopped.
 with digit+`(` and are skipped by the same pattern.
 - `pp_od_clk_voltage`: no `OD_*` header → single legacy voltage table;
 sections `OD_SCLK`/`OD_MCLK`/`OD_RANGE`/`OD_VDDGFX_OFFSET` with per-entry
-units (`500Mhz`, `-50mV`); 2104 MHz must never render as voltage.
+units (`500Mhz`, `-50mV`); 2104 MHz must never render as voltage. Domains are
+emitted in **file order** (`OD_SCLK` before `OD_MCLK`), never sorted: the
+reference's dict preserves first-seen order and the `--dump` parity gate compares
+the sequence, not just the set. A section this parser does not model
+(`OD_FAN_CURVE`, `OD_VDDC_CURVE`, …) is skipped rather than read as a clock.
 - radeontop diagnostics split across **both** stdout ("are you root?") and
 stderr; classify from the pair; `-p` by DRM node path (bus numbers are
 ambiguous); `-i` is whole seconds (`atoi`).
