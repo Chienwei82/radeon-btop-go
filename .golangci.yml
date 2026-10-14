@@ -1,0 +1,44 @@
+# golangci-lint configuration, v2 schema (see techContext.md for the pin).
+#
+# Why a config at all: lint ran on the tool's defaults during Phase 0, and
+# defaults drift with releases -- a linter added or removed upstream would
+# silently change what "lint clean" means. The enabled set below is therefore
+# stated rather than inherited, and `default: standard` is the five linters the
+# reference gates care about (errcheck, govet, ineffassign, staticcheck, unused),
+# plus the four extras this port wants on purpose.
+#
+# Verified 2026-10-13 against golangci-lint v2.14.0 via Context7
+# (/golangci/golangci-lint): `version: "2"` is required, formatter linters
+# (gofmt, goimports, ...) moved from `linters.enable` to `formatters.enable`,
+# and gofmt is *not* part of the `standard` group, so it has to be enabled here
+# or the gofmt gate would quietly stop running.
+version: "2"
+
+linters:
+  # `standard` is explicit on purpose: `none` would drop errcheck and vet,
+  # which are the two that catch the mistakes this codebase makes.
+  default: standard
+  enable:
+    # A wrapped error that is compared with == or formatted with %v loses its
+    # chain; the readers never propagate errors, but the sampler does.
+    - errorlint
+    # Domain names are user-visible ("junction", "throttle", "sclk"); a typo
+    # in a doc comment is worth catching.
+    - misspell
+    # The metric tables are full of explicit conversions; a redundant one is a
+    # sign the units were misread.
+    - unconvert
+  exclusions:
+    # The committed parity fixture under internal/cli/testdata is data, not
+    # code; nothing here should ever be linted or "fixed".
+    paths:
+      - testdata
+
+formatters:
+  enable:
+    - gofmt
+  settings:
+    gofmt:
+      # -s: the same simplification `gofmt -s` applies, so the formatter gate
+      # and the manual `gofmt -l .` gate cannot disagree.
+      simplify: true

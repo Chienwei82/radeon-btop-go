@@ -185,18 +185,19 @@ completions in [packaging/completions/](packaging/completions/).
 ## Configuration
 
 Precedence, lowest to highest: built-in defaults → `$GPUTOP_CONFIG` →
-`~/.config/gputop/gputop.toml` → `~/.gputoprc` → the `[state]` section gputop
-saved for itself → CLI flags.
+`~/.config/gputop/gputop.yaml` → the `state:` block gputop saved for itself →
+CLI flags.
 
 Every key is optional; unknown keys are reported as warnings and ignored, so
 a file written for a newer release still works today. See
-[gputop.example.toml](gputop.example.toml) — the key set is shared with the
-Python build.
+[gputop.example.yaml](gputop.example.yaml) — the key set is the same as the
+Python build's, but the format is YAML, so a Python-era `.toml` file is not
+read.
 
-`[state]` is written by gputop itself (theme, interval, sort, filter, view
-choices) into `~/.config/gputop/config.toml` (`$GPUTOP_STATE` overrides the
-path). The write is atomic and preserves the rest of the file byte-for-byte,
-comments included.
+`state:` is written by gputop itself (theme, interval, sort, filter, view
+choices) into `~/.config/gputop/config.yaml` (`$GPUTOP_STATE` overrides the
+path). The write is atomic and edits the parsed document in place, so the rest
+of the file — comments and key order included — is preserved.
 
 ---
 
@@ -214,8 +215,11 @@ All of it unprivileged, all of it read-only:
 The one thing not read from a file is the optional blocks panel: with
 `blocks.enabled` it starts `radeontop` as a child and parses its dump output.
 That is the only part that can need privileges. The application never writes
-to sysfs — enforced by a CI test that greps `internal/readers` for write
-paths.
+to sysfs — enforced in CI by a test that parses every file in
+`internal/readers` and fails on a filesystem mutator, a write-capable open, a
+`Write*` method or a shell redirect (and confines process launchers to
+`radeontop.go`). It works on the syntax tree, so a comment that merely mentions
+writing does not trip it.
 
 ---
 
@@ -240,14 +244,22 @@ The host needs nothing but podman. All Go work runs in the container:
 ./scripts/podev.sh build   # compile ./gputop
 ./scripts/podev.sh test    # go test ./...
 ./scripts/podev.sh vet     # go vet ./...
-./scripts/podev.sh lint    # golangci-lint run ./...
+./scripts/podev.sh lint    # golangci-lint run ./... (set pinned in .golangci.yml)
+./scripts/podev.sh fmt     # gofmt -l . (empty output == clean)
 ./scripts/podev.sh shell   # interactive shell in the dev image
 ```
+
+The headless data path is covered by a **parity gate**: `internal/cli/parity_test.go`
+replays the reference's `--dump` over a committed synthetic sysfs/procfs tree
+and compares the two documents field for field (key order included). The tree
+and golden live in `internal/cli/testdata/parity/` and are regenerated with
+`scripts/parity_fixture.py` against a Python reference checkout.
 
 Methodology gates (see AGENTS.md): TDD (red→green→refactor), MDD
 (`internal/model` leads; SPEC/DESIGN/PROGRESS are the living spec), clean
 code (`gofmt`+`vet`+`golangci-lint` green before every commit), Context7 for
-every third-party API.
+every third-party API. `.github/workflows/ci.yml` runs all of it in the
+container on every push and pull request.
 
 See [PROGRESS.md](PROGRESS.md) for the verification ledger: what was measured
 on real hardware, what was verified against fixtures, and what is still

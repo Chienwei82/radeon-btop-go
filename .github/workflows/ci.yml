@@ -1,0 +1,63 @@
+# Continuous integration: the AGENTS.md gates, enforced rather than assumed.
+#
+# Every step runs inside the podman dev image, because the host has no Go
+# toolchain by design and CI is not an exception to that rule. The image is
+# rebuilt on every run: a stale image is a gate that passes for the wrong
+# reason. The price is a few minutes per run, which is the cost of "the
+# toolchain lives in the container" being true everywhere, not just locally.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the dev image
+        run: ./scripts/podev.sh image
+
+      - name: Build
+        run: ./scripts/podev.sh build
+
+      - name: gofmt
+        # `gofmt -l .` exits 0 whatever it prints, so the emptiness of its
+        # output is the gate, not its status.
+        run: test -z "$(./scripts/podev.sh fmt)"
+
+      - name: vet
+        run: ./scripts/podev.sh vet
+
+      - name: lint
+        run: ./scripts/podev.sh lint
+
+      - name: test
+        run: ./scripts/podev.sh test
+
+      - name: read-only guard
+        # The invariant, run on its own so a failure is unmistakable in the log
+        # rather than one line among many. It is also part of `go test ./...`
+        # above; this step exists to make the guarantee visible.
+        run: |
+          ./scripts/podev.sh test -count=1 -v -run \
+            'TestReadersNeverWriteToKernelState|TestReadersLaunchOnlyRadeontop' \
+            ./internal/readers/
+
+      - name: --dump parity with the Python reference
+        # The golden under internal/cli/testdata is produced by the reference;
+        # this is the gate that keeps the two implementations honest.
+        run: |
+          ./scripts/podev.sh test -count=1 -v -run TestDumpParityWithReference \
+            ./internal/cli/
