@@ -171,6 +171,31 @@ tests at explicit sizes. Themes: 3 palettes + monochrome; 255-stop truecolor
 ramp (odd count → 50% lands on mid), 25-stop 256-colour cube-snapped ramp.
 Overlays (filter/kill/help/picker) as stacked sub-models returning values.
 
+### Responsive rules (pure, in `internal/ui/layout.go`)
+
+The render layer is a pure function of one `LayoutInput`, so every rule below
+is pinned by a test rather than discovered on a terminal:
+
+- The graphs are never what gets dropped. On a short terminal the process
+  table yields first (`ShortHeight = 20`); on a narrow one (`NarrowWidth =
+  72`) the sensors move *under* the graphs instead of squeezing them away.
+- Memory graphs appear from `MinHeightForMemoryGraphs = 28`.
+- The optional row (per-block utilisation beside the power profile) has one
+  threshold for both panels: `MinHeightForOptionalRow = 38 + 8 = 46`. The
+  cost is not the row's height but what it takes from the sensor panel beside
+  it, which scrolls: an optional panel must never be the reason a required
+  one needs scrolling. That invariant is a test
+  (`TestOptionalRowNeverCostsAPrimarySensorReading`).
+- A panel with nothing to say is not drawn at all: `optionalRow` returns
+  `nil` when both the block sample and the SCPP tables are absent, and `nil`
+  is what leaves the main row every line it had. The row is cropped to the
+  eight lines the reference measured it at rather than allowed to grow.
+- Below `2 * MinOptionalPanelWidth + 1` columns the two optional panels stack
+  instead of sharing a row, because a panel narrower than its own label
+  column produces a bar of no useful length.
+- The alert notice goes last on the status line, so a narrow terminal takes
+  the width from the notice rather than from the facts.
+
 ## 6. Open risks (`UNVERIFIED`)
 
 - `format_revision == 3` (RDNA3): no sample, no published struct →

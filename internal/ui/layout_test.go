@@ -134,6 +134,144 @@ func screenInput() LayoutInput {
 
 func plainRows(rows []Row) []string { return PlainLines(rows) }
 
+// profileInput is the golden machine with the SCPP tables the power-profile
+// panel reads. Nothing else changes, so a difference between this and
+// screenInput() is the optional row and nothing else.
+func profileInput() LayoutInput {
+	in := screenInput()
+	in.Snapshot.Devices[0].Profiles = model.PowerProfileTable{
+		Profiles: []model.PowerProfileEntry{
+			{Index: 0, Name: "BOOTUP_DEFAULT", Active: true},
+			{Index: 1, Name: "3D_FULL_SCREEN"},
+		},
+		Present: true,
+	}
+	return in
+}
+
+func TestOptionalRowIsHiddenWithoutAnyData(t *testing.T) {
+	in := screenInput()
+	in.Width, in.Height = 160, 50
+	joined := strings.Join(plainRows(RenderScreen(in)), "\n")
+	if strings.Contains(joined, "Power profile") || strings.Contains(joined, "Blocks ·") {
+		t.Fatalf("a panel with nothing to say must not appear at all:\n%s", joined)
+	}
+}
+
+func TestOptionalRowAppearsWhenTheProfileTablesExist(t *testing.T) {
+	in := profileInput()
+	in.Width, in.Height = 160, 50
+	joined := strings.Join(plainRows(RenderScreen(in)), "\n")
+	for _, want := range []string{"Power profile", "BOOTUP_DEFAULT", "read-only"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("screen misses %q:\n%s", want, joined)
+		}
+	}
+}
+
+func TestOptionalRowWaitsForItsHeightFloor(t *testing.T) {
+	in := profileInput()
+	in.Width = 160
+	in.Height = MinHeightForOptionalRow - 1
+	if joined := strings.Join(plainRows(RenderScreen(in)), "\n"); strings.Contains(joined, "Power profile") {
+		t.Fatalf("optional row drawn at %d rows, below its floor:\n%s", in.Height, joined)
+	}
+	in.Height = MinHeightForOptionalRow
+	if joined := strings.Join(plainRows(RenderScreen(in)), "\n"); !strings.Contains(joined, "Power profile") {
+		t.Fatalf("optional row missing at its own floor (%d rows):\n%s", in.Height, joined)
+	}
+}
+
+func TestOneThresholdGovernsBothOptionalPanels(t *testing.T) {
+	if MinHeightForOptionalRow <= MinHeightForSensorsComplete {
+		t.Fatalf("optional row floor %d must sit above the sensors' %d",
+			MinHeightForOptionalRow, MinHeightForSensorsComplete)
+	}
+}
+
+// The invariant behind MinHeightForOptionalRow: the sensor panel is what
+// scrolls, so an optional row must never be the reason a primary reading
+// leaves the screen.
+func TestOptionalRowNeverCostsAPrimarySensorReading(t *testing.T) {
+	primary := []string{"Core", "Memory", "SoC", "temp edge", "temp junction", "Power", "cap 211 W"}
+	for _, height := range []int{MinHeightForOptionalRow, MinHeightForOptionalRow + 6} {
+		in := profileInput()
+		in.Width, in.Height = 120, height
+		joined := strings.Join(plainRows(RenderScreen(in)), "\n")
+		for _, want := range primary {
+			if !strings.Contains(joined, want) {
+				t.Fatalf("%q scrolled off at height %d:\n%s", want, height, joined)
+			}
+		}
+	}
+}
+
+func TestOptionalRowShowsTheBlocksPanelBesideTheProfilePanel(t *testing.T) {
+	in := profileInput()
+	b := blockSample()
+	in.Snapshot.Devices[0].Blocks = &b
+	in.Width, in.Height = 160, 50
+	lines := plainRows(RenderScreen(in))
+	joined := strings.Join(lines, "\n")
+	sameLine := false
+	for _, line := range lines {
+		if strings.Contains(line, "Blocks") && strings.Contains(line, "Power profile") {
+			sameLine = true
+		}
+	}
+	if !sameLine {
+		t.Fatalf("the two optional panels are not on one row:\n%s", joined)
+	}
+	for _, want := range []string{"Graphics pipe", "Event Engine", "Texture Cache"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("screen misses %q:\n%s", want, joined)
+		}
+	}
+}
+
+// The optional row is cropped to the height the reference measured it at,
+// rather than allowed to grow until the sensor panel starts scrolling.
+func TestOptionalRowIsCroppedToItsMeasuredHeight(t *testing.T) {
+	in := profileInput()
+	b := blockSample()
+	in.Snapshot.Devices[0].Blocks = &b
+	in.Width, in.Height = 160, 50
+	lines := plainRows(RenderScreen(in))
+	blocksRows := 0
+	for _, line := range lines {
+		if strings.Contains(line, "Graphics pipe") || strings.Contains(line, "Vertex Grouper") ||
+			strings.Contains(line, "Texture Cache") || strings.Contains(line, "Depth Block") {
+			blocksRows++
+		}
+	}
+	if blocksRows > optionalRowLines {
+		t.Fatalf("blocks panel drew %d rows, above its budget of %d", blocksRows, optionalRowLines)
+	}
+}
+
+func TestAlertNoticeReachesTheStatusLine(t *testing.T) {
+	in := screenInput()
+	in.Alerts = model.AlertState{
+		Level:    model.AlertAlert,
+		Breaches: []model.AlertBreach{{Metric: "temp junction", Reading: "94C", Limit: "90C", Level: model.AlertAlert}},
+	}
+	in.Width, in.Height = 120, 40
+	joined := strings.Join(plainRows(RenderScreen(in)), "\n")
+	if !strings.Contains(joined, "temp junction 94C > 90C") {
+		t.Fatalf("status line misses the alert:\n%s", joined)
+	}
+}
+
+func TestNoAlertLeavesTheStatusLineAlone(t *testing.T) {
+	in := screenInput()
+	in.Width, in.Height = 120, 40
+	for _, line := range plainRows(RenderScreen(in)) {
+		if strings.HasPrefix(line, "#7") && strings.Contains(line, " > ") {
+			t.Fatalf("status line carries an alert with nothing crossed: %q", line)
+		}
+	}
+}
+
 func titledLine(lines []string, title string) bool {
 	for _, line := range lines {
 		if strings.TrimSpace(line) == title {

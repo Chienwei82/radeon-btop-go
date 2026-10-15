@@ -18,6 +18,9 @@ type LayoutInput struct {
 	Height    int
 	UptimeS   float64
 	IntervalS float64
+	// Alerts is the threshold state for this sample. The zero value means
+	// nothing is crossed, so the status line stays as it is.
+	Alerts model.AlertState
 }
 
 // headerLines is the fixed device header height; footerLines is the status
@@ -26,6 +29,29 @@ const (
 	headerLines = 3
 	footerLines = 2
 )
+
+// MinHeightForSensorsComplete is the terminal height at which the sensor
+// panel shows every one of its rows without scrolling.
+const MinHeightForSensorsComplete = 38
+
+// MinHeightForOptionalRow is the terminal height at which the optional row
+// of panels may be added.
+//
+// One threshold for both panels, and it is higher than either needs on its
+// own. The cost is not the row's height but what it takes from the sensor
+// panel beside it: the sensor panel scrolls, so a row added below the main
+// one does not lose its content, it pushes the last lines out of view. An
+// optional panel must never be the reason a required one needs scrolling.
+const MinHeightForOptionalRow = MinHeightForSensorsComplete + 8
+
+// optionalRowLines is the height the optional row is allowed: the reference
+// implementation measured the cost of the row at eight rows, and the panels
+// are cropped to it rather than allowed to push the sensors off the screen.
+const optionalRowLines = 8
+
+// minLinesForMainRow is the floor the graph and sensor row keeps before the
+// optional row is dropped for lack of space.
+const minLinesForMainRow = 10
 
 // RenderScreen composes the whole interface for one terminal size.
 //
@@ -72,7 +98,14 @@ func RenderScreen(in LayoutInput) []Row {
 			}
 		}
 	} else {
+		optional := optionalRow(device, in, th, rest, width)
+		if optional != nil {
+			rest -= len(optional)
+		}
 		out = append(out, detailColumns(device, in, th, rest, width)...)
+		if optional != nil {
+			out = append(out, optional...)
+		}
 	}
 
 	if tableLines > 0 && device != nil {
@@ -81,6 +114,62 @@ func RenderScreen(in LayoutInput) []Row {
 
 	out = append(out, fitRow(statusLine(in, th), width))
 	out = append(out, fitRow(keyHints(th, width), width))
+	return out
+}
+
+// optionalRow is the row of panels that only appears when there is something
+// to show and the terminal is tall enough to afford it: the per-block
+// utilisation beside the power profile.
+//
+// It returns nil when either condition fails, and nil is the signal the
+// caller uses to leave the main row every line it had. A panel with nothing
+// to say must not appear at all -- a bordered empty box costs the sensor
+// panel a row and answers nothing.
+func optionalRow(device *model.AmdgpuMetrics, in LayoutInput, th Theme, rest, width int) []Row {
+	if device == nil || in.Height < MinHeightForOptionalRow {
+		return nil
+	}
+	if rest-optionalRowLines < minLinesForMainRow {
+		return nil
+	}
+	blocks := BlocksPanel(device.Blocks, th, width, nil)
+	profile := PowerProfilePanel(*device, th, width, nil)
+	hasProfile := device.Profiles.Present || device.ODC.Present
+	if device.Blocks == nil && !hasProfile {
+		return nil
+	}
+	if device.Blocks == nil {
+		return crop(append([]Row{titleRow("Power profile", th)}, profile...), optionalRowLines, width)
+	}
+	if !hasProfile {
+		return crop(append([]Row{titleRow(BlocksHeading(device.Blocks), th)}, blocks...), optionalRowLines, width)
+	}
+	if width < 2*MinOptionalPanelWidth+1 {
+		// Too narrow for two columns: stack them rather than squeeze the bars
+		// below the length at which they say anything.
+		return crop(append(blocks, profile...), optionalRowLines, width)
+	}
+	left := (width - 1) / 2
+	right := width - left - 1
+	leftRows := append([]Row{titleRow(BlocksHeading(device.Blocks), th)}, blocks...)
+	rightRows := append([]Row{titleRow("Power profile", th)}, profile...)
+	return crop(joinColumns(leftRows, rightRows, left, right, 1), optionalRowLines, width)
+}
+
+// MinOptionalPanelWidth is the narrowest an optional panel is laid out at:
+// its bars are sized from the panel, and a panel narrower than its own label
+// column produces a bar of no useful length.
+const MinOptionalPanelWidth = 30
+
+// crop trims a block to at most lines rows, each fitted to width.
+func crop(rows []Row, lines, width int) []Row {
+	if len(rows) > lines {
+		rows = rows[:lines]
+	}
+	out := make([]Row, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, fitRow(r, width))
+	}
 	return out
 }
 
@@ -181,14 +270,25 @@ func processBlock(in LayoutInput, th Theme, lines, width int) []Row {
 }
 
 // statusLine is the diagnostics line above the key hints.
+//
+// The alert notice goes last, after the facts: a crossed threshold is the
+// one thing on this line the user has to act on, so it is the thing the
+// width is taken from last when the terminal is narrow.
 func statusLine(in LayoutInput, th Theme) Row {
 	visible, total := in.Snapshot.VisibleProcessCount, in.Snapshot.TotalProcessCount
-	return FooterPanel(th, FooterInfo{
+	row := FooterPanel(th, FooterInfo{
 		Sequence: in.Snapshot.Sequence, MetricsSource: in.Snapshot.Source.MetricsABI,
 		TickMs: in.IntervalS * 1000, CPU: NA,
 		Visible: &visible, Total: &total,
 		Warnings: in.Snapshot.Warnings, BlocksStatus: in.Snapshot.BlocksStatus, BlocksHint: in.Snapshot.BlocksHint,
 	})
+	if notice := AlertNotice(in.Alerts); notice != "" {
+		row.Cells = append(row.Cells,
+			Cell{Text: "  ·  ", Color: th.Track},
+			Cell{Text: notice, Color: th.Warn},
+		)
+	}
+	return row
 }
 
 // keyHints is the fixed one-line key reference at the bottom. It is a

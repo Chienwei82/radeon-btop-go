@@ -62,6 +62,13 @@ func FitBarWidth(available, valueReserve int, label int) int {
 // An unavailable reading draws an empty bar and prints N/A. A full bar for
 // a missing value would be the single most misleading thing this UI does.
 func StatRow(label, value string, fraction *float64, th Theme, available int, gradient *Gradient) Row {
+	return StatRowWidth(label, value, fraction, th, available, gradient, LabelWidth)
+}
+
+// StatRowWidth is StatRow with a caller-chosen label column, for panels whose
+// labels are not the sensor panel's ("temp junction" wide, or the blocks
+// panel's longer still).
+func StatRowWidth(label, value string, fraction *float64, th Theme, available int, gradient *Gradient, labelWidth int) Row {
 	var ramp Gradient
 	if gradient != nil {
 		ramp = *gradient
@@ -69,8 +76,8 @@ func StatRow(label, value string, fraction *float64, th Theme, available int, gr
 		ramp = NewGradient(th, true)
 	}
 	var cells []Cell
-	cells = append(cells, Cell{Text: padRight(label, LabelWidth), Color: th.Muted})
-	width := FitBarWidth(available, len(value)+1, LabelWidth)
+	cells = append(cells, Cell{Text: padRight(label, labelWidth), Color: th.Muted})
+	width := FitBarWidth(available, len(value)+1, labelWidth)
 	if fraction == nil {
 		cells = append(cells, Cell{Text: strings.Repeat(BarEmpty, width), Color: th.Track})
 		cells = append(cells, Cell{Text: " " + NA, Color: th.Muted})

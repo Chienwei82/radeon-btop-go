@@ -89,6 +89,10 @@ delivered as one static Go binary.
 Every metric is optional. `nil` renders as `N/A` in the UI and as an empty
 cell in CSV. "Never" means the value is not available on this hardware/kernel.
 
+Numbers in the UI are grouped in thousands (`2,200 MHz`, `1,023 B`), matching
+the reference's `f"{value:,}"`; a golden test pins it so the two
+implementations cannot drift on a rendered reading.
+
 ### 3.1 Core metrics
 
 Same set as the Python reference: `gpu_busy_percent`, `mem_busy_percent`,

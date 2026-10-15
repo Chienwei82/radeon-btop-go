@@ -20,14 +20,49 @@ const (
 // Fmt formats an optional number, rendering nil as N/A.
 //
 // This is the single choke point for the "unavailable is not zero" rule.
+// Numbers are grouped in thousands, the way the reference implementation's
+// f"{value:,}" does, so a 2 200 MHz clock reads "2,200 MHz" in both.
 func Fmt(value *float64, suffix string, digits int) string {
 	if value == nil {
 		return NA
 	}
 	if digits == 0 {
-		return fmt.Sprintf("%d%s", int(*value), suffix)
+		return groupNumber(fmt.Sprintf("%d", int(*value))) + suffix
 	}
-	return fmt.Sprintf("%.*f%s", digits, *value, suffix)
+	return groupNumber(fmt.Sprintf("%.*f", digits, *value)) + suffix
+}
+
+// groupNumber groups the integer part of an already formatted number,
+// leaving the fractional part alone.
+func groupNumber(s string) string {
+	if i := strings.IndexByte(s, '.'); i >= 0 {
+		return groupThousands(s[:i]) + s[i:]
+	}
+	return groupThousands(s)
+}
+
+// groupThousands inserts the separator every three digits, counting from the
+// right and carrying the sign outside the grouping.
+func groupThousands(digits string) string {
+	sign := ""
+	if strings.HasPrefix(digits, "-") || strings.HasPrefix(digits, "+") {
+		sign, digits = digits[:1], digits[1:]
+	}
+	if len(digits) <= 3 {
+		return sign + digits
+	}
+	var b strings.Builder
+	b.WriteString(sign)
+	lead := len(digits) % 3
+	if lead == 0 {
+		lead = 3
+	}
+	b.WriteString(digits[:lead])
+	for i := lead; i < len(digits); i += 3 {
+		b.WriteByte(',')
+		b.WriteString(digits[i : i+3])
+	}
+	return b.String()
 }
 
 // FmtTemp formats a Celsius reading with a degree sign.
@@ -70,9 +105,9 @@ func FmtBytes(value *model.Bytes) string {
 		// still land somewhere instead of falling out of the bottom.
 		if absFloat(size) < 1024.0 || unit == "TiB" {
 			if unit == "B" {
-				return fmt.Sprintf("%.0f %s", size, unit)
+				return groupNumber(fmt.Sprintf("%.0f", size)) + " " + unit
 			}
-			return fmt.Sprintf("%.1f %s", size, unit)
+			return groupNumber(fmt.Sprintf("%.1f", size)) + " " + unit
 		}
 		size /= 1024.0
 	}
@@ -84,7 +119,7 @@ func FmtPercent(value *model.Percent, digits int) string {
 	if value == nil {
 		return NA
 	}
-	return fmt.Sprintf("%.*f%%", digits, *value)
+	return groupNumber(fmt.Sprintf("%.*f", digits, *value)) + "%"
 }
 
 // Bar renders a proportional bar of exactly width characters, or N/A when
