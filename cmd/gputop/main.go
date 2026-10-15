@@ -15,6 +15,7 @@ import (
 	"github.com/gputop/gputop-go/internal/cli"
 	"github.com/gputop/gputop-go/internal/config"
 	"github.com/gputop/gputop-go/internal/model"
+	"github.com/gputop/gputop-go/internal/readers"
 	"github.com/gputop/gputop-go/internal/sampler"
 )
 
@@ -51,8 +52,13 @@ func runWith(args []string, stdout io.Writer) (int, error) {
 	procRoot := fs.String("proc-root", "", "procfs mount point (default /proc)")
 	noProcesses := fs.Bool("no-processes", false, "skip the /proc scan, the most expensive part of a sample")
 	kind := fs.String("kind", "", "force every device to be classified as igpu or dgpu")
+	blocks := fs.Bool("blocks", false, "force the per-block panel on, overriding blocks.enabled")
+	noBlocks := fs.Bool("no-blocks", false, "never start radeontop, even when it is installed")
 	if err := fs.Parse(args); err != nil {
 		return 1, err
+	}
+	if *blocks && *noBlocks {
+		return 1, fmt.Errorf("--blocks and --no-blocks are mutually exclusive")
 	}
 	if *showVersion {
 		if _, err := fmt.Fprintf(stdout, "gputop %s\n", version); err != nil {
@@ -65,9 +71,26 @@ func runWith(args []string, stdout io.Writer) (int, error) {
 	}
 
 	cfg := config.Load(*configPath)
+	// The flag wins over the config; --no-blocks is the only way to override a
+	// config that turned the panel on.
+	blocksEnabled := cfg.Blocks.Enabled
+	if *blocks {
+		blocksEnabled = true
+	}
+	if *noBlocks {
+		blocksEnabled = false
+	}
 	in := cli.OneShot{
 		Config: &cfg,
 		Pretty: *pretty,
+		Blocks: readers.NewRadeontopPool(readers.RadeontopOptions{
+			Enabled:   blocksEnabled,
+			Binary:    cfg.Blocks.Binary,
+			Ticks:     cfg.Blocks.Ticks,
+			IntervalS: cfg.Blocks.IntervalS,
+			DrmRoot:   cfg.Blocks.DrmRoot,
+			Restart:   cfg.Blocks.Restart,
+		}),
 		Sampler: sampler.SamplerOptions{
 			IntervalS:        cfg.IntervalS(),
 			HistoryLength:    cfg.HistoryLength(),

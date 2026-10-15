@@ -586,3 +586,82 @@ func TestRequestTickWakesASleepingSampler(t *testing.T) {
 		t.Fatalf("second seq %d not after first %d", second.Sequence, first.Sequence)
 	}
 }
+
+// -- the blocks source seam ------------------------------------------------
+
+// stubBlocks is a BlocksSource that records what the sampler asked of it, so
+// the seam can be tested without a radeontop process.
+type stubBlocks struct {
+	polls      int
+	status     model.BlocksStatus
+	blocks     map[int]*model.GpuBlocks
+	configured []model.AmdgpuDevice
+	started    int
+	stopped    int
+}
+
+func (s *stubBlocks) Poll() model.BlocksStatus         { s.polls++; return s.status }
+func (s *stubBlocks) Status() model.BlocksStatus       { return s.status }
+func (s *stubBlocks) Diagnostic() string               { return "" }
+func (s *stubBlocks) Start()                           { s.started++ }
+func (s *stubBlocks) Stop()                            { s.stopped++ }
+func (s *stubBlocks) Configure(d []model.AmdgpuDevice) { s.configured = d }
+func (s *stubBlocks) BlocksFor(index int) *model.GpuBlocks {
+	return s.blocks[index]
+}
+
+func TestBlocksSourceIsPolledAndAttached(t *testing.T) {
+	drmRoot, pciRoot := drmFixture(t)
+	procRoot := procFixture(t)
+	makeGpu(t, drmRoot, pciRoot, gpuSpec{metrics: map[string]int{"temperature_edge": 49}})
+
+	blocks := &stubBlocks{
+		status: model.BlocksOK,
+		blocks: map[int]*model.GpuBlocks{
+			0: {Blocks: []model.BlockReading{{Key: "gpu", Label: "Graphics pipe", Percent: 42}}},
+		},
+	}
+	s := newSampler(drmRoot, pciRoot, procRoot).WithBlocks(blocks)
+	if got := s.Discover(); len(got) != 1 {
+		t.Fatalf("discover = %d devices, want 1", len(got))
+	}
+	if len(blocks.configured) != 1 {
+		t.Fatalf("blocks source saw %d devices, want 1", len(blocks.configured))
+	}
+	snap, err := s.SampleOnce()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blocks.polls != 1 {
+		t.Errorf("polls = %d, want 1 per tick", blocks.polls)
+	}
+	if snap.BlocksStatus != model.BlocksOK {
+		t.Errorf("snapshot blocks status = %q, want ok", snap.BlocksStatus)
+	}
+	if attached := snap.Devices[0].Blocks; attached == nil || attached.BusiestKey() != "gpu" {
+		t.Errorf("attached blocks = %+v, want the source's sample", attached)
+	}
+}
+
+func TestStartAndStopDriveTheBlocksSource(t *testing.T) {
+	drmRoot, pciRoot := drmFixture(t)
+	procRoot := procFixture(t)
+	makeGpu(t, drmRoot, pciRoot, gpuSpec{metrics: map[string]int{"temperature_edge": 49}})
+
+	blocks := &stubBlocks{status: model.BlocksOK}
+	s := newSampler(drmRoot, pciRoot, procRoot).WithBlocks(blocks)
+	s.Start()
+	if blocks.started != 1 {
+		t.Fatalf("started = %d, want 1", blocks.started)
+	}
+	if awaitSnapshot(s, time.Second) == nil {
+		t.Fatal("the sampler thread never published a snapshot")
+	}
+	s.Stop()
+	if blocks.stopped != 1 {
+		t.Fatalf("stopped = %d, want 1", blocks.stopped)
+	}
+	if blocks.polls == 0 {
+		t.Error("the blocks source was never polled")
+	}
+}

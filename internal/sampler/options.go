@@ -88,6 +88,12 @@ func (o SamplerOptions) validated() SamplerOptions {
 // clamped rather than rejected: the only caller is a key press and the clamp
 // is exactly the behaviour the key advertises.
 func clampInterval(intervalS float64) float64 {
+	return ClampInterval(intervalS)
+}
+
+// ClampInterval floors and ceilings a sampling interval. Exported for the
+// TUI's +/- keys; the sampler's SetInterval uses the same clamp.
+func ClampInterval(intervalS float64) float64 {
 	if intervalS < MinIntervalS {
 		return MinIntervalS
 	}

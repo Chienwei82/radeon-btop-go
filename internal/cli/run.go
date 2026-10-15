@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gputop/gputop-go/internal/config"
+	"github.com/gputop/gputop-go/internal/readers"
 	"github.com/gputop/gputop-go/internal/sampler"
 )
 
@@ -18,6 +19,11 @@ type OneShot struct {
 	Sampler sampler.SamplerOptions
 	Config  *config.Config
 	Pretty  bool
+	// Blocks, when non-nil, is the supervised radeontop pool. Only --dump
+	// starts it, and only when the panel was asked for: an unconditional wait
+	// would add seconds to every dump on a machine that has radeontop
+	// installed and does not use this feature.
+	Blocks *readers.RadeontopPool
 }
 
 // Devices writes the discovered-GPU list as JSON and returns an exit status.
@@ -53,6 +59,9 @@ func Devices(w io.Writer, in OneShot) (int, error) {
 // the wait every engine would read 0%.
 func Dump(w io.Writer, in OneShot) (int, error) {
 	s := sampler.New(in.Sampler)
+	if in.Blocks != nil {
+		s = s.WithBlocks(in.Blocks)
+	}
 	devices := s.Discover()
 	warnings := StartupWarnings(in.Config, s.FilterWarning())
 	if len(devices) == 0 {
@@ -65,6 +74,16 @@ func Dump(w io.Writer, in OneShot) (int, error) {
 			return 1, err
 		}
 		return ExitNoDevice, nil
+	}
+	if in.Blocks != nil && in.Blocks.Enabled() {
+		// The panel must have real numbers the first time it renders, and a
+		// one-shot dump has no sampling goroutine to accumulate the wait for
+		// it. A timeout is not an error: the snapshot still goes out, with the
+		// status saying why the blocks are missing.
+		in.Blocks.Start()
+		defer in.Blocks.Stop()
+		readers.WaitForFirstSample(in.Blocks,
+			time.Duration(readers.StartupGraceS*float64(time.Second)))
 	}
 	if _, err := s.SampleOnce(); err != nil {
 		return 1, err
