@@ -119,6 +119,55 @@ spec docs, packaging skeleton.
 
 
 
+## Milestone 2 — optional panels and recording (in progress)
+
+**Scope:** Phase 3. Supervised `radeontop`, power-profile/overdrive panels,
+threshold alerts with flash, `--log` CSV/JSONL/zstd, `k` with confirmation,
+atomic `[state]` persistence, full `--check`.
+
+**Delivered so far**
+
+- `internal/readers/radeontop.go` — the supervised per-block child: dump-line
+  parser (by field name, never by position), argv builder, PCI bus extraction,
+  both-streams failure classification, one drain goroutine per pipe, bounded
+  restart, idempotent teardown, explicit pipe closing. Process launching stays
+  confined to this file, which the read-only guard already asserts.
+- `internal/sampler` — the pool implements `BlocksSource` behind the existing
+  `WithBlocks` seam, so the tick loop is untouched. `internal/cli` +
+  `cmd/gputop` wire it: `--blocks` / `--no-blocks` (mutually exclusive)
+  override `blocks.enabled`, and `--dump` starts the panel only when it was
+  asked for and waits for its first sample, so a dump still reproduces what the
+  interface would draw.
+
+**Verified (inside the container, 2026-10-14)**
+
+- `gofmt -l .` empty; `go vet ./...` clean; `golangci-lint run ./...` **0
+  issues**; `go test ./...` green (8 packages).
+- `go test -race` on the supervised-process tests: clean. Run with
+  `CGO_ENABLED=1` in the dev image, which pins `CGO_ENABLED=0` for the
+  deliverable.
+- Repaired the committed tree: `internal/ui/keys.go` called
+  `sampler.ClampInterval`, which was unexported at `3a2cc4b`, so
+  `go build ./...` failed on `main`. The function is exported now and
+  `clampInterval` delegates to it.
+
+**Remaining in this milestone:** power-profile/overdrive panels, threshold
+alerts with flash, `--log` (CSV/JSONL/zstd), `k` with confirmation, atomic
+`[state]` persistence, full `--check`, and the bubbletea event loop that
+carries them.
+
+**Notes**
+
+- radeontop splits its failure messages across both streams and the
+  *actionable* one arrives last, so a failure is classified only after the
+  stderr drain is joined. Classifying on stdout EOF alone tells a user their
+  card is unsupported when the real answer is that they need root.
+- The child is reaped only after both drains finish: Go closes a `StdoutPipe`
+  inside `Wait`, so reaping earlier would race the readers.
+
+---
+
+
 ## Verification ledger
 
 | Claim | Status | Evidence |
@@ -137,7 +186,11 @@ spec docs, packaging skeleton.
 | gpu_metrics layouts | designed-for | inherited verified claims from Python SPEC §6 |
 | fdinfo accounting | designed-for | inherited verified claims from Python DESIGN §7 |
 | CI runs the gates | assumed | workflow added 2026-10-13; first green run pending |
-| TUI golden-test strategy | designed-for | no code yet; Phase 2 |
+| TUI golden-test strategy | measured | golden at 100x40 + 30 key-model bindings, Phase 2 |
+| radeontop dump-line parsing | measured | `TestParseDumpLine*`, ported fixtures, 2026-10-14 |
+| radeontop failure classification | measured | `TestClassifyFailure*` incl. stdout-only complaints, 2026-10-14 |
+| radeontop child lifecycle | measured | `TestPool*` (exit-at-once, refused, missing, stop, configure) + `-race`, 2026-10-14 |
+| Blocks seam in the sampler | measured | `TestBlocksSourceIsPolledAndAttached`, `TestDumpBlocksPanel`, 2026-10-14 |
 
 ---
 

@@ -50,7 +50,7 @@ out explicitly.
 | `readers/metrics_bin` | `internal/readers/metricsbin` | manual offsets+padding, `encoding/binary` |
 | `readers/procfs` | `internal/readers/procfs` | raw syscalls, string paths in hot loop |
 | `readers/pp` | `internal/readers/pp` | two-era parser, unit-carrying entries |
-| `readers/radeontop` | `internal/readers/radeontop` | `exec.CommandContext`, both pipes |
+| `readers/radeontop` | `internal/readers/radeontop` | `exec.Command` + two drain goroutines (no `CommandContext`: teardown is a polite SIGTERM, then a bounded SIGKILL) |
 | `sampler/engine` | `internal/sampler` | goroutine + chan + `atomic.Pointer` view |
 | `ui/app,panels,…` | `internal/ui` | bubbletea Model + pure `string` builders |
 | `cli,config,check,control,state,sessionlog` | `internal/cli,config,check,control,state,sessionlog` | `flag` stdlib; goccy/go-yaml + AST `state:` write-back |
@@ -131,6 +131,32 @@ the sequence, not just the set. A section this parser does not model
 - radeontop diagnostics split across **both** stdout ("are you root?") and
 stderr; classify from the pair; `-p` by DRM node path (bus numbers are
 ambiguous); `-i` is whole seconds (`atoi`).
+- Supervised child (Go deltas, all deliberate):
+  - `exec.Command` + one drain goroutine per pipe instead of `CommandContext`.
+    Teardown is the reference's own shape -- SIGTERM, a bounded wait, then
+    SIGKILL -- and `CommandContext` would SIGKILL on cancel, defeating the
+    polite path. `Setsid` reproduces `start_new_session=True`.
+  - The reaper (`cmd.Wait`) runs only after both drains finish, because Go
+    closes a `StdoutPipe` inside `Wait` and reading afterwards is undefined.
+    The parent's pipe ends are closed explicitly on replacement and on stop,
+    which is what keeps a restarting session descriptor-clean.
+  - Failure classification awaits the stderr drain (bounded by
+    `StderrDrainTimeoutS`) before reading the captured lines. stdout closes as
+    soon as the child dies while stderr is still arriving, so classifying on
+    stdout EOF alone reads a partial buffer and reports the *least* actionable
+    of radeontop's complaints.
+  - `status`/`blocks` are published with `atomic.Pointer`; the restart budget
+    lives behind a mutex, because the sampler goroutine starts and polls the
+    child while teardown may run elsewhere and that pair genuinely races. The
+    sample read path stays lock-free.
+  - `argv[0]` is the path `ResolveBinary` accepted, and `BuildArgv` validates
+    its options, so a zero value yields radeontop's own defaults rather than
+    `-i 0 -t 0`.
+  - `WaitForFirstSample` waits out the full `StartupGraceS` even when the
+    status is already terminal (no radeontop installed), matching the
+    reference; only `--blocks`/`blocks.enabled` pays that cost.
+
+
 
 ## 5. TUI design (bubbletea)
 

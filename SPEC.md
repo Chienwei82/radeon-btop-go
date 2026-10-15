@@ -146,6 +146,7 @@ sectioned clock table; unit per entry; bar ratio against the driver's own
 | FR11 | **Optional** per-block panel, off by default, from a supervised `radeontop` child; hides itself and states the reason |
 | FR12 | **Optional threshold alerts** for temperature, power, VRAM; crossed threshold flashes the panel border and names the breach; missing reading never alerts; every device judged |
 | FR13 | **Optional session recording** to CSV or JSON Lines via `--log PATH`; un-openable target disables recording with a warning, never stops the monitor |
+| FR14 | `--blocks` / `--no-blocks` force the per-block panel on or off, overriding `blocks.enabled`; the two are mutually exclusive (stdlib `flag` has no such group) |
 
 ---
 
