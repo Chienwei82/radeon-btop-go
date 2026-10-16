@@ -50,9 +50,15 @@ func TestBlocksPanelRendersARowPerBlock(t *testing.T) {
 }
 
 func TestBlocksPanelEveryRowFitsTheAvailableWidth(t *testing.T) {
-	// 40 is the narrowest width the layout hands these panels; a bar never
-	// goes below its floor of six cells, and below that the layout's own
-	// crop takes over (the reference relies on the widget crop there).
+	// The panel's own width contract holds down to the width at which the bar
+	// reaches its six-cell floor; below that a row can be one cell wider than
+	// the panel and the layout's crop trims it -- which is exactly what the
+	// reference does (its Text widget carries overflow="crop").
+	//
+	// These are widths the layout really hands the panel: 40 and 44 interior
+	// cases, 58 a stacked case just below the 61-column stacking threshold.
+	// The narrowest column the layout can allocate (30, in the two-column
+	// optional row) is covered by the overrun test below.
 	b := blockSample()
 	for _, width := range []int{40, 44, 58} {
 		for _, row := range blocksText(BlocksPanel(&b, DefaultTheme, width, nil)) {
@@ -60,6 +66,31 @@ func TestBlocksPanelEveryRowFitsTheAvailableWidth(t *testing.T) {
 				t.Fatalf("width %d: row is %d cells: %q", width, n, row)
 			}
 		}
+	}
+}
+
+// Below the bar floor the panel may overrun by a cell, and the layout's crop
+// is what keeps the frame intact. Pinning it here means the overrun stays a
+// known, deliberate consequence of the six-cell floor rather than a
+// regression nobody notices.
+//
+// Only the clock rows can overrun, because their value text ("1,000 MHz") is
+// the widest the panel prints; a percentage row has room to spare at the same
+// width.
+func TestBlocksPanelOverrunsOnlyBelowTheBarFloor(t *testing.T) {
+	b := blockSample()
+	overrun := 0
+	for _, row := range blocksText(BlocksPanel(&b, DefaultTheme, 30, nil)) {
+		if runeLen(row) <= 30 {
+			continue
+		}
+		overrun++
+		if !strings.Contains(row, "MHz") {
+			t.Fatalf("a non-clock row overruns its panel: %q", row)
+		}
+	}
+	if want := len(b.Clocks); overrun != want {
+		t.Fatalf("at 30 columns %d rows overrun, want the %d clock rows", overrun, want)
 	}
 }
 

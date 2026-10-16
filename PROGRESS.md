@@ -195,6 +195,14 @@ full `--check`, and the bubbletea event loop that carries them.
   card is unsupported when the real answer is that they need root.
 - The child is reaped only after both drains finish: Go closes a `StdoutPipe`
   inside `Wait`, so reaping earlier would race the readers.
+- The width contract's last line is the layout's `crop`, not the panel. The
+  optional row can hand the blocks panel as little as 30 columns, where
+  `FitBarWidth`'s six-cell floor leaves a clock row one cell wider than the
+  panel; the reference relies on the same widget crop (`overflow="crop"`), so
+  that is parity. A first version of the test asserted "every row fits" at 30
+  columns — a property the panel does not have — and was replaced by tests
+  that sweep the widths where the contract holds and pin the overrun to the
+  clock rows.
 - **Open parity gap found while reviewing this milestone:** Python's `round()`
   is half-to-even while the port's idiom `int(x + 0.5)` is half-up, so a bar
   fill can differ by one cell at an exact `.5` boundary (`clamped=5, width=10`
@@ -232,6 +240,7 @@ full `--check`, and the bubbletea event loop that carries them.
 | radeontop child lifecycle | measured | `TestPool*` (exit-at-once, refused, missing, stop, configure) + `-race`, 2026-10-14 |
 | Blocks seam in the sampler | measured | `TestBlocksSourceIsPolledAndAttached`, `TestDumpBlocksPanel`, 2026-10-14 |
 | Blocks + power-profile panels render | measured | `TestBlocksPanel*`, `TestPowerProfilePanel*`, golden 100x40, 2026-10-14 |
+| Panel width contract above the bar floor | measured | `TestBlocksPanelEveryRowFitsTheAvailableWidth` + `TestBlocksPanelOverrunsOnlyBelowTheBarFloor`, 2026-10-15 |
 | Optional row never costs a sensor row | measured | `TestOptionalRowNeverCostsAPrimarySensorReading` (row present vs absent, same terminal), 2026-10-14 |
 | Threshold alerts (every device; absent never alerts) | measured | `TestEvaluateAlerts*`, `TestAlertBorderColor*`, `TestAlertNotice*`, 2026-10-14 |
 | Number formatting (thousand grouping) | measured | `TestFmt*Group*` + golden `2,200 MHz`/`1,000 MHz`, 2026-10-14 |
