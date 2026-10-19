@@ -119,7 +119,7 @@ spec docs, packaging skeleton.
 
 
 
-## Milestone 2 — optional panels and recording (in progress)
+## Milestone 2 — optional panels and recording (panels + supervisor)
 
 **Scope:** Phase 3. Supervised `radeontop`, power-profile/overdrive panels,
 threshold alerts with flash, `--log` CSV/JSONL/zstd, `k` with confirmation,
@@ -216,6 +216,70 @@ full `--check`, and the bubbletea event loop that carries them.
 ---
 
 
+## Milestone 3 — event loop, recording, signalling, state, full `--check`
+
+**Scope:** Phase 3 completion. Built on `phase3-optional-panels` after the
+supervised child (`407648a`) and the optional panels (`5a58f3b`).
+
+**Delivered**
+
+- `internal/model/round.go` — `RoundHalfEven`, the reference's `round()`
+  semantics, shared by every bar fill, the ramp index, the RGB lerp and the
+  PCIe link-speed parse. Boundary table in `round_test.go`; the UI keeps its
+  own test that `Bar`, `StatRow` and the gradient all use it.
+- `internal/sessionlog` — CSV and JSON Lines, zstd selected by the filename
+  suffix; stable column set; absent readings are an empty cell (CSV) or null
+  (JSON); the header is seeded from the file's size so a second session
+  appends instead of writing a second header; write failures are values, not
+  panics; `ReadLog` shares the suffix rule.
+- `internal/control` — the signalling rules (refuse pid 1, kernel threads,
+  gputop itself), the reversible default for an unknown signal name, and an
+  injectable delivery function so the suite never sends a real signal.
+- `internal/config.SaveState` — atomic `state:` write by editing the parsed
+  YAML AST, so comments and key order survive; an unparseable document is
+  refused rather than replaced; permissions are preserved, a new file is
+  0600; directory fsync after the rename.
+- `internal/check` system findings + `internal/cli.Check` + `--check [--json]`
+  wiring: process-table ownership, the blocks panel (resolved but never run),
+  the loaded amdgpu version, and a scriptable JSON shape.
+- `internal/ui/app.go` — the bubbletea v2 model: snapshot wait, alert flash
+  timer, help/filter/kill overlays, selection by identity, log thinning by
+  `log.interval_s`, and one idempotent `Shutdown` that saves the state, closes
+  the recording, and stops the sampler. It also runs after a SIGTERM.
+- `internal/cli/tui.go` + `cmd/gputop` — the interface is the default mode;
+  `--log`, `--no-color`; a signal asks the program to quit so the save still
+  happens.
+- Dependencies pinned: `charm.land/bubbletea/v2` v2.1.0,
+  `charm.land/lipgloss/v2` v2.0.6 (the v2 modules declare `charm.land`, not
+  `github.com/charmbracelet`), `github.com/klauspost/compress` v1.20.3.
+
+**Verified (measured, 2026-10-19, container + host hardware)**
+
+- Gates: `gofmt -l .` empty, `go vet ./...` clean, `golangci-lint run ./...`
+  **0 issues**, `go test ./...` green (10 packages), `go build ./...` ok.
+- Real hardware (RX 6800, kernel 7.0.0, amdgpu 6.19.4): `--check` reports the
+  process table and 7/7 device metrics; `--check --json` parses as JSON with
+  the documented keys; `--dump` still matches its golden.
+- TUI under a pseudo-terminal (`script -qec`): renders the device, `--log`
+  writes real CSV rows, and SIGTERM exits and writes `state:` at
+  `$GPUTOP_STATE` with mode 0600 and two-space nesting.
+- Rounding boundary table: `5% of width 10` fills 0 cells (was 1).
+- Sessionlog: header-once, column count, empty-vs-zero, null-vs-absent,
+  zstd magic + round trip, reopen/append, unopenable path, level range.
+
+**Assumed / known gaps**
+
+- The 100x40 golden did not change with the rounding fix (no exact `.5` tie at
+  that width), so the rule is pinned by the helper's table; a future golden at
+  a width with a tie is the belt-and-braces check.
+- zstd append after a crash may still lose the earlier frame (inherited).
+- `--check` does not list `/dev/dri` render nodes, which the reference does.
+  Recorded as a deliberate gap rather than an oversight.
+- The alert flash is exercised as pure state (`flashMsg`) plus the colour
+  function; the visual cadence on a real terminal is a manual observation.
+
+---
+
 ## Verification ledger
 
 | Claim | Status | Evidence |
@@ -244,7 +308,12 @@ full `--check`, and the bubbletea event loop that carries them.
 | Optional row never costs a sensor row | measured | `TestOptionalRowNeverCostsAPrimarySensorReading` (row present vs absent, same terminal), 2026-10-14 |
 | Threshold alerts (every device; absent never alerts) | measured | `TestEvaluateAlerts*`, `TestAlertBorderColor*`, `TestAlertNotice*`, 2026-10-14 |
 | Number formatting (thousand grouping) | measured | `TestFmt*Group*` + golden `2,200 MHz`/`1,000 MHz`, 2026-10-14 |
-| Bar-fill rounding matches Python `round()` | **assumed, known false** | differs by one cell at exact `.5` boundaries (`int(x+0.5)` vs half-to-even); repro + call sites in the milestone Notes, 2026-10-14 |
+| Bar-fill rounding matches Python `round()` | measured | `TestRoundHalfEvenMatchesPythonRound` + `TestBarFillUsesHalfToEvenRounding` (5% of 10 → 0 cells), 2026-10-19 |
+| Session recording (CSV/JSONL/zstd) | measured | `internal/sessionlog` suite: header once, empty cell, null, magic, round trip, reopen, level range, 2026-10-19 |
+| Atomic `state:` write | measured | `TestSaveState*` (comments/keys preserved, unparseable refused, 0600, mode kept) + host run on SIGTERM, 2026-10-19 |
+| Signalling rules and confirmation | measured | `internal/control` refusal table + delivered-signal spy; `TestAppKill*`, 2026-10-19 |
+| Event loop, overlays, log throttling | measured | `internal/ui/app_test.go` (snapshot, filter, help, kill, no-color, devices, quit/save), 2026-10-19 |
+| `--check` text + JSON on real hardware | measured | host RX 6800: 7/7 device metrics, process table, JSON keys, 2026-10-19 |
 
 ---
 
