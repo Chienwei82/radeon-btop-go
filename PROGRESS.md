@@ -119,6 +119,167 @@ spec docs, packaging skeleton.
 
 
 
+## Milestone 2 — optional panels and recording (panels + supervisor)
+
+**Scope:** Phase 3. Supervised `radeontop`, power-profile/overdrive panels,
+threshold alerts with flash, `--log` CSV/JSONL/zstd, `k` with confirmation,
+atomic `[state]` persistence, full `--check`.
+
+**Delivered so far**
+
+- `internal/readers/radeontop.go` — the supervised per-block child: dump-line
+  parser (by field name, never by position), argv builder, PCI bus extraction,
+  both-streams failure classification, one drain goroutine per pipe, bounded
+  restart, idempotent teardown, explicit pipe closing. Process launching stays
+  confined to this file, which the read-only guard already asserts.
+- `internal/sampler` — the pool implements `BlocksSource` behind the existing
+  `WithBlocks` seam, so the tick loop is untouched. `internal/cli` +
+  `cmd/gputop` wire it: `--blocks` / `--no-blocks` (mutually exclusive)
+  override `blocks.enabled`, and `--dump` starts the panel only when it was
+  asked for and waits for its first sample, so a dump still reproduces what the
+  interface would draw.
+- `internal/model/blocks.go` — `DisplayReading` + `GpuBlocks.DisplayRows()`:
+  the presentation grouping (pipeline ▸ aux ▸ clocks, empty groups omitted) is
+  model work, so the UI does not re-derive it.
+- `internal/ui/blocks.go` — `BlocksPanel` / `BlocksHeading` / `blockRow`.
+  `BlocksPanel(nil)` renders *one* explanatory line ("waiting for radeontop")
+  rather than a column of `N/A`; a sample with no blocks says "no blocks
+  reported"; a block at exactly zero still draws an empty bar with `0%` (a
+  measurement, not an absence); a clock prints its frequency (`2,104 MHz`) and
+  falls back to its percentage when radeontop reported none.
+- `internal/ui/profile.go` — `PowerProfilePanel`: the read-only SCPP panel
+  (active profile, the alternatives, the overdrive table with **its own unit
+  per table**, and a closing "read-only" line naming where a change has to be
+  made instead).
+- `internal/ui/alerts.go` — `EvaluateAlerts` (judges **every** device, not the
+  focused one), `AlertBorderColor` (accent when clear; alert/track alternating
+  while crossed, a full cycle returning where it started) and `AlertNotice`.
+  The event loop will own only the flash boolean.
+- `internal/ui/layout.go` — the optional row: one threshold for both panels
+  (`MinHeightForOptionalRow = 46`), absent entirely when there is nothing to
+  say, cropped to the eight lines the reference measured, stacked below
+  `2 * MinOptionalPanelWidth + 1` columns, and never allowed to cost a primary
+  sensor reading (asserted by `TestOptionalRowNeverCostsAPrimarySensorReading`).
+  The alert notice goes last on the status line (`LayoutInput.Alerts`).
+- `internal/ui/panels.go` — `StatRowWidth`, so the blocks panel reserves its
+  own (wider) label column; `StatRow` delegates to it.
+- `internal/ui/format.go` — numbers are grouped in thousands
+  (`groupNumber`/`groupThousands`), matching the reference's `f"{value:,}"`.
+
+**Verified (inside the container, 2026-10-14)**
+
+- `gofmt -l .` empty; `go vet ./...` clean; `golangci-lint run ./...` **0
+  issues**; `go test ./...` green (8 packages); `go build ./...` exit 0.
+- `go test -race` on the supervised-process tests: clean. Run with
+  `CGO_ENABLED=1` in the dev image, which pins `CGO_ENABLED=0` for the
+  deliverable.
+- Repaired the committed tree: `internal/ui/keys.go` called
+  `sampler.ClampInterval`, which was unexported at `3a2cc4b`, so
+  `go build ./...` failed on `main`. The function is exported now and
+  `clampInterval` delegates to it.
+- The 100x40 golden screen was regenerated with `UPDATE_GOLDEN=1` passed into
+  the container (the wrapper forwards arguments, not the environment) and the
+  diff was read before it was kept: `2,200 MHz`, `1,000 MHz`, `2,400 rpm` —
+  the thousand-grouping fix — plus the bar widths that follow from the shorter
+  value text. Nothing else changed.
+
+**Remaining in this milestone:** the rounding-semantics parity fix (below),
+`--log` (CSV/JSONL/zstd), `k` with confirmation, atomic `[state]` persistence,
+full `--check`, and the bubbletea event loop that carries them.
+
+**Notes**
+
+- radeontop splits its failure messages across both streams and the
+  *actionable* one arrives last, so a failure is classified only after the
+  stderr drain is joined. Classifying on stdout EOF alone tells a user their
+  card is unsupported when the real answer is that they need root.
+- The child is reaped only after both drains finish: Go closes a `StdoutPipe`
+  inside `Wait`, so reaping earlier would race the readers.
+- The width contract's last line is the layout's `crop`, not the panel. The
+  optional row can hand the blocks panel as little as 30 columns, where
+  `FitBarWidth`'s six-cell floor leaves a clock row one cell wider than the
+  panel; the reference relies on the same widget crop (`overflow="crop"`), so
+  that is parity. A first version of the test asserted "every row fits" at 30
+  columns — a property the panel does not have — and was replaced by tests
+  that sweep the widths where the contract holds and pin the overrun to the
+  clock rows.
+- **Open parity gap found while reviewing this milestone:** Python's `round()`
+  is half-to-even while the port's idiom `int(x + 0.5)` is half-up, so a bar
+  fill can differ by one cell at an exact `.5` boundary (`clamped=5, width=10`
+  → reference 0 filled, port 1; `clamped=25, width=10` → 2 vs 3). Seven call
+  sites (`ui/panels.go` ×2, `ui/format.go` `Bar`, `ui/devices.go` ×2,
+  `ui/gradient.go` ramp index + RGB lerp). Neither test suite pins it — the
+  reference asserts fill *ratios* with `pytest.approx(abs=0.02)`. Fix is one
+  shared half-to-even helper plus a boundary-table test; scheduled as the next
+  unit rather than changed inside this one.
+
+---
+
+
+## Milestone 3 — event loop, recording, signalling, state, full `--check`
+
+**Scope:** Phase 3 completion. Built on `phase3-optional-panels` after the
+supervised child (`407648a`) and the optional panels (`5a58f3b`).
+
+**Delivered**
+
+- `internal/model/round.go` — `RoundHalfEven`, the reference's `round()`
+  semantics, shared by every bar fill, the ramp index, the RGB lerp and the
+  PCIe link-speed parse. Boundary table in `round_test.go`; the UI keeps its
+  own test that `Bar`, `StatRow` and the gradient all use it.
+- `internal/sessionlog` — CSV and JSON Lines, zstd selected by the filename
+  suffix; stable column set; absent readings are an empty cell (CSV) or null
+  (JSON); the header is seeded from the file's size so a second session
+  appends instead of writing a second header; write failures are values, not
+  panics; `ReadLog` shares the suffix rule.
+- `internal/control` — the signalling rules (refuse pid 1, kernel threads,
+  gputop itself), the reversible default for an unknown signal name, and an
+  injectable delivery function so the suite never sends a real signal.
+- `internal/config.SaveState` — atomic `state:` write by editing the parsed
+  YAML AST, so comments and key order survive; an unparseable document is
+  refused rather than replaced; permissions are preserved, a new file is
+  0600; directory fsync after the rename.
+- `internal/check` system findings + `internal/cli.Check` + `--check [--json]`
+  wiring: process-table ownership, the blocks panel (resolved but never run),
+  the loaded amdgpu version, and a scriptable JSON shape.
+- `internal/ui/app.go` — the bubbletea v2 model: snapshot wait, alert flash
+  timer, help/filter/kill overlays, selection by identity, log thinning by
+  `log.interval_s`, and one idempotent `Shutdown` that saves the state, closes
+  the recording, and stops the sampler. It also runs after a SIGTERM.
+- `internal/cli/tui.go` + `cmd/gputop` — the interface is the default mode;
+  `--log`, `--no-color`; a signal asks the program to quit so the save still
+  happens.
+- Dependencies pinned: `charm.land/bubbletea/v2` v2.1.0,
+  `charm.land/lipgloss/v2` v2.0.6 (the v2 modules declare `charm.land`, not
+  `github.com/charmbracelet`), `github.com/klauspost/compress` v1.20.3.
+
+**Verified (measured, 2026-10-19, container + host hardware)**
+
+- Gates: `gofmt -l .` empty, `go vet ./...` clean, `golangci-lint run ./...`
+  **0 issues**, `go test ./...` green (10 packages), `go build ./...` ok.
+- Real hardware (RX 6800, kernel 7.0.0, amdgpu 6.19.4): `--check` reports the
+  process table and 7/7 device metrics; `--check --json` parses as JSON with
+  the documented keys; `--dump` still matches its golden.
+- TUI under a pseudo-terminal (`script -qec`): renders the device, `--log`
+  writes real CSV rows, and SIGTERM exits and writes `state:` at
+  `$GPUTOP_STATE` with mode 0600 and two-space nesting.
+- Rounding boundary table: `5% of width 10` fills 0 cells (was 1).
+- Sessionlog: header-once, column count, empty-vs-zero, null-vs-absent,
+  zstd magic + round trip, reopen/append, unopenable path, level range.
+
+**Assumed / known gaps**
+
+- The 100x40 golden did not change with the rounding fix (no exact `.5` tie at
+  that width), so the rule is pinned by the helper's table; a future golden at
+  a width with a tie is the belt-and-braces check.
+- zstd append after a crash may still lose the earlier frame (inherited).
+- `--check` does not list `/dev/dri` render nodes, which the reference does.
+  Recorded as a deliberate gap rather than an oversight.
+- The alert flash is exercised as pure state (`flashMsg`) plus the colour
+  function; the visual cadence on a real terminal is a manual observation.
+
+---
+
 ## Verification ledger
 
 | Claim | Status | Evidence |
@@ -137,7 +298,22 @@ spec docs, packaging skeleton.
 | gpu_metrics layouts | designed-for | inherited verified claims from Python SPEC §6 |
 | fdinfo accounting | designed-for | inherited verified claims from Python DESIGN §7 |
 | CI runs the gates | assumed | workflow added 2026-10-13; first green run pending |
-| TUI golden-test strategy | designed-for | no code yet; Phase 2 |
+| TUI golden-test strategy | measured | golden at 100x40 + 30 key-model bindings, Phase 2 |
+| radeontop dump-line parsing | measured | `TestParseDumpLine*`, ported fixtures, 2026-10-14 |
+| radeontop failure classification | measured | `TestClassifyFailure*` incl. stdout-only complaints, 2026-10-14 |
+| radeontop child lifecycle | measured | `TestPool*` (exit-at-once, refused, missing, stop, configure) + `-race`, 2026-10-14 |
+| Blocks seam in the sampler | measured | `TestBlocksSourceIsPolledAndAttached`, `TestDumpBlocksPanel`, 2026-10-14 |
+| Blocks + power-profile panels render | measured | `TestBlocksPanel*`, `TestPowerProfilePanel*`, golden 100x40, 2026-10-14 |
+| Panel width contract above the bar floor | measured | `TestBlocksPanelEveryRowFitsTheAvailableWidth` + `TestBlocksPanelOverrunsOnlyBelowTheBarFloor`, 2026-10-15 |
+| Optional row never costs a sensor row | measured | `TestOptionalRowNeverCostsAPrimarySensorReading` (row present vs absent, same terminal), 2026-10-14 |
+| Threshold alerts (every device; absent never alerts) | measured | `TestEvaluateAlerts*`, `TestAlertBorderColor*`, `TestAlertNotice*`, 2026-10-14 |
+| Number formatting (thousand grouping) | measured | `TestFmt*Group*` + golden `2,200 MHz`/`1,000 MHz`, 2026-10-14 |
+| Bar-fill rounding matches Python `round()` | measured | `TestRoundHalfEvenMatchesPythonRound` + `TestBarFillUsesHalfToEvenRounding` (5% of 10 → 0 cells), 2026-10-19 |
+| Session recording (CSV/JSONL/zstd) | measured | `internal/sessionlog` suite: header once, empty cell, null, magic, round trip, reopen, level range, 2026-10-19 |
+| Atomic `state:` write | measured | `TestSaveState*` (comments/keys preserved, unparseable refused, 0600, mode kept) + host run on SIGTERM, 2026-10-19 |
+| Signalling rules and confirmation | measured | `internal/control` refusal table + delivered-signal spy; `TestAppKill*`, 2026-10-19 |
+| Event loop, overlays, log throttling | measured | `internal/ui/app_test.go` (snapshot, filter, help, kill, no-color, devices, quit/save), 2026-10-19 |
+| `--check` text + JSON on real hardware | measured | host RX 6800: 7/7 device metrics, process table, JSON keys, 2026-10-19 |
 
 ---
 
@@ -148,6 +324,13 @@ spec docs, packaging skeleton.
 - `BRAILLE_BITS` is the single source of truth for the dot layout (dots 1–3
   and 7 form the LEFT column).
 - radeontop splits diagnostics across stdout AND stderr; drain both.
+- Python's `round()` is **half-to-even**; Go's `int(x + 0.5)` is half-up. Any
+  ported `round(...)` needs a deliberate half-to-even helper, not the idiom.
+- A golden test pins *current* behaviour, not the reference's: regenerate it
+  inside the container (`podman run -e UPDATE_GOLDEN=1 …`) and read the diff
+  line by line before keeping it.
+- The optional row is gated on there being data *and* room; `nil` from the
+  layout means "draw nothing", which is different from "draw an empty panel".
 - A fixture whose `drm-engine-*` counters never advance has NO utilisation
   (cumulative counters; deltas need a baseline).
 - `nil` = absent everywhere; tests must pin `nil`-vs-zero distinctly.

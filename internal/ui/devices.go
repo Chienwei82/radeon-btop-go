@@ -51,7 +51,7 @@ func miniBar(percent *float64, th Theme) Row {
 		cells = append(cells, Cell{Text: strings.Repeat(BarEmpty, TabBarCells), Color: th.Track})
 		return Row{Cells: cells}
 	}
-	filled := int(min(100.0, max(0.0, *percent)) / 100.0 * TabBarCells)
+	filled := model.RoundHalfEven(min(100.0, max(0.0, *percent)) / 100.0 * TabBarCells)
 	cells = append(cells, Cell{Text: strings.Repeat(BarFilled, filled), Color: th.Accent})
 	cells = append(cells, Cell{Text: strings.Repeat(BarEmpty, TabBarCells-filled), Color: th.Track})
 	return Row{Cells: cells}

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/gputop/gputop-go/internal/model"
@@ -118,9 +119,12 @@ func (d DeviceReport) Missing() []Finding {
 
 // Report is the whole --check answer.
 type Report struct {
-	Kernel   string
-	Amdgpu   string
-	Devices  []DeviceReport
+	Kernel  string
+	Amdgpu  string
+	Devices []DeviceReport
+	// System are the findings about the machine rather than one GPU: the
+	// process table and the optional per-block panel.
+	System   []Finding
 	Warnings []string
 }
 
@@ -446,7 +450,12 @@ func (r Report) Render() string {
 	lines := []string{"gputop check", strings.Repeat("=", ReportWidth), ""}
 	lines = append(lines, "kernel           "+orNotLoaded(r.Kernel))
 	lines = append(lines, "amdgpu           "+orNotLoaded(r.Amdgpu))
+	lines = append(lines, "go               "+runtime.Version())
 	lines = append(lines, "")
+	if len(r.System) > 0 {
+		lines = append(lines, renderTable(r.System)...)
+		lines = append(lines, "")
+	}
 
 	if len(r.Devices) == 0 {
 		lines = append(lines,
@@ -483,6 +492,13 @@ func (r Report) Render() string {
 		summary += fmt.Sprintf("  (%d not available, each explained above)", missing)
 	}
 	lines = append(lines, summary)
+	if len(r.Warnings) > 0 {
+		lines = append(lines, "")
+		lines = append(lines, "warnings:")
+		for _, warning := range r.Warnings {
+			lines = append(lines, "  - "+warning)
+		}
+	}
 	return strings.Join(lines, "\n")
 }
 

@@ -50,7 +50,7 @@ out explicitly.
 | `readers/metrics_bin` | `internal/readers/metricsbin` | manual offsets+padding, `encoding/binary` |
 | `readers/procfs` | `internal/readers/procfs` | raw syscalls, string paths in hot loop |
 | `readers/pp` | `internal/readers/pp` | two-era parser, unit-carrying entries |
-| `readers/radeontop` | `internal/readers/radeontop` | `exec.CommandContext`, both pipes |
+| `readers/radeontop` | `internal/readers/radeontop` | `exec.Command` + two drain goroutines (no `CommandContext`: teardown is a polite SIGTERM, then a bounded SIGKILL) |
 | `sampler/engine` | `internal/sampler` | goroutine + chan + `atomic.Pointer` view |
 | `ui/app,panels,…` | `internal/ui` | bubbletea Model + pure `string` builders |
 | `cli,config,check,control,state,sessionlog` | `internal/cli,config,check,control,state,sessionlog` | `flag` stdlib; goccy/go-yaml + AST `state:` write-back |
@@ -131,19 +131,130 @@ the sequence, not just the set. A section this parser does not model
 - radeontop diagnostics split across **both** stdout ("are you root?") and
 stderr; classify from the pair; `-p` by DRM node path (bus numbers are
 ambiguous); `-i` is whole seconds (`atoi`).
+- Supervised child (Go deltas, all deliberate):
+  - `exec.Command` + one drain goroutine per pipe instead of `CommandContext`.
+    Teardown is the reference's own shape -- SIGTERM, a bounded wait, then
+    SIGKILL -- and `CommandContext` would SIGKILL on cancel, defeating the
+    polite path. `Setsid` reproduces `start_new_session=True`.
+  - The reaper (`cmd.Wait`) runs only after both drains finish, because Go
+    closes a `StdoutPipe` inside `Wait` and reading afterwards is undefined.
+    The parent's pipe ends are closed explicitly on replacement and on stop,
+    which is what keeps a restarting session descriptor-clean.
+  - Failure classification awaits the stderr drain (bounded by
+    `StderrDrainTimeoutS`) before reading the captured lines. stdout closes as
+    soon as the child dies while stderr is still arriving, so classifying on
+    stdout EOF alone reads a partial buffer and reports the *least* actionable
+    of radeontop's complaints.
+  - `status`/`blocks` are published with `atomic.Pointer`; the restart budget
+    lives behind a mutex, because the sampler goroutine starts and polls the
+    child while teardown may run elsewhere and that pair genuinely races. The
+    sample read path stays lock-free.
+  - `argv[0]` is the path `ResolveBinary` accepted, and `BuildArgv` validates
+    its options, so a zero value yields radeontop's own defaults rather than
+    `-i 0 -t 0`.
+  - `WaitForFirstSample` waits out the full `StartupGraceS` even when the
+    status is already terminal (no radeontop installed), matching the
+    reference; only `--blocks`/`blocks.enabled` pays that cost.
+
+
 
 ## 5. TUI design (bubbletea)
 
 `Update` handles `tea.KeyPressMsg` (30 bindings), `tea.WindowSizeMsg`
-(responsive breakpoints 72/20/28), tick messages (drain snapshot → rebuild
-render buffers → record sample), flash-timer messages (alert borders). `View`
-frames pure `string` builders with lipgloss (borders, joins, color profiles).
-Process table: bubbles table fed by `procview`-equivalent pure logic (sort,
-filter, tree, idle-hiding, selection by identity, top-marker `▶`). Braille:
+(responsive breakpoints 72/20/28), snapshot messages, and flash-timer
+messages. `View` calls the pure `RenderScreen` and then resolves each cell's
+theme key to lipgloss once per frame; with `--no-color` it emits the plain
+rows, which are also what the goldens read. The cell model is the reason the
+screen needs no borders or layout engine: rows are already composed at the
+exact terminal width.
+
+Process table: the pure `procview` logic (sort, filter, tree, idle-hiding,
+selection by identity, top-marker `▶`) feeds `RenderTable`; bubbles' table
+widget was not adopted because rebuilding rows from a snapshot is cheaper and
+the identity-selection rules live in the domain, not the widget. Braille:
 `BRAILLE_BITS` verbatim, gaps preserved, per-dot-column accumulation, golden
-tests at explicit sizes. Themes: 3 palettes + monochrome; 255-stop truecolor
-ramp (odd count → 50% lands on mid), 25-stop 256-colour cube-snapped ramp.
-Overlays (filter/kill/help/picker) as stacked sub-models returning values.
+tests at explicit sizes. Themes: 5 palettes; 255-stop truecolor ramp (odd
+count → 50% lands on mid), 25-stop 256-colour cube-snapped ramp.
+
+### The event loop (`internal/ui/app.go`)
+
+One model owns the view state and the snapshot on screen, and nothing else.
+The two clocks are bubbletea commands: `waitCmd` blocks (off the render
+path) on the sampler's bounded channel, and `flashCmd` is a `tea.Tick` whose
+message flips one boolean — the only stateful part of an alert.
+
+- **Selection is by identity** `(drm-pdev, drm-client-id)`. A sample that no
+  longer contains the selected client clears the selection; the highlight
+  never jumps to whatever row took its place.
+- **Overlays own the keyboard** while open (`help`, `filter`, `kill`). The
+  kill dialog captures the target when it opens, so a table that reorders
+  under the modal cannot signal a different process.
+- **One exit path.** `Shutdown` is idempotent: it saves the state, closes the
+  recording, and stops the sampler. It runs from `q`, and again after
+  `Program.Run` returns, which is what covers a SIGTERM (the signal handler
+  asks the program to quit rather than letting the process die).
+- **Recording is thinned in the loop**, not in the writer: `log.interval_s`
+  is a clock question, and the writer stays a pure sink.
+
+### Recording (`internal/sessionlog`)
+
+CSV and JSON Lines, with zstd selected by the filename suffix (`.zst` or
+`.zstd`). The base name decides the format and the suffix decides the
+transport, so neither is declared twice. The file is opened in append mode and
+the header is seeded from the file's existing size: recording twice to one
+path extends it instead of writing a second header into the middle of the
+data. A snapshot with several GPUs becomes one row per GPU. Absence is an
+empty CSV cell and `null` in JSON, never `0` and never `N/A`. Every failure
+is a value (`Problem`), because a recording that takes the monitor down with
+it has made things worse.
+
+### Signalling (`internal/control`)
+
+The only code that can end something other than gputop. `Refusal` is pure and
+exhaustive (pid <= 0, pid 1, kernel thread, gputop itself), the unknown-signal
+fallback is the reversible one, and delivery is a package variable so the
+suite can assert what would have been sent without sending it.
+
+### Session state (`internal/config/state.go`, `state_save.go`)
+
+Reading merges the `state:` block under the config (defaults → file → state →
+flags). Writing edits the parsed YAML AST in place — comments and key order
+survive — then writes a temporary file in the same directory, fsyncs it, keeps
+the target's permissions (0600 for a new file), renames it, and fsyncs the
+directory. A document that does not parse is **not** written: merging into an
+empty document would replace the user's configuration with a bare `state:`.
+
+### Rounding (`internal/model/round.go`)
+
+Python's `round()` is half-to-even and Go's `int(x+0.5)` is half-up, so a bar
+fill differed by one cell at exact `.5` boundaries (5% of 10 cells: reference
+0, half-up 1). `RoundHalfEven` is the single helper every bar, ramp index,
+RGB lerp and PCIe link-speed parse uses; its boundary table is the test.
+
+### Responsive rules (pure, in `internal/ui/layout.go`)
+
+The render layer is a pure function of one `LayoutInput`, so every rule below
+is pinned by a test rather than discovered on a terminal:
+
+- The graphs are never what gets dropped. On a short terminal the process
+  table yields first (`ShortHeight = 20`); on a narrow one (`NarrowWidth =
+  72`) the sensors move *under* the graphs instead of squeezing them away.
+- Memory graphs appear from `MinHeightForMemoryGraphs = 28`.
+- The optional row (per-block utilisation beside the power profile) has one
+  threshold for both panels: `MinHeightForOptionalRow = 38 + 8 = 46`. The
+  cost is not the row's height but what it takes from the sensor panel beside
+  it, which scrolls: an optional panel must never be the reason a required
+  one needs scrolling. That invariant is a test
+  (`TestOptionalRowNeverCostsAPrimarySensorReading`).
+- A panel with nothing to say is not drawn at all: `optionalRow` returns
+  `nil` when both the block sample and the SCPP tables are absent, and `nil`
+  is what leaves the main row every line it had. The row is cropped to the
+  eight lines the reference measured it at rather than allowed to grow.
+- Below `2 * MinOptionalPanelWidth + 1` columns the two optional panels stack
+  instead of sharing a row, because a panel narrower than its own label
+  column produces a bar of no useful length.
+- The alert notice goes last on the status line, so a narrow terminal takes
+  the width from the notice rather than from the facts.
 
 ## 6. Open risks (`UNVERIFIED`)
 

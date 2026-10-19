@@ -69,6 +69,55 @@ func BlockLabel(key string) string {
 	return key
 }
 
+// DisplayReading is one row of the blocks panel: a pipeline block, an
+// auxiliary block or a clock. A clock carries its absolute frequency, which
+// is the number worth printing when radeontop reported one.
+type DisplayReading struct {
+	Key     string
+	Label   string
+	Percent Percent
+	Mhz     *Mhz
+}
+
+// IsClock reports whether this reading came with an absolute frequency.
+func (r DisplayReading) IsClock() bool { return r.Mhz != nil }
+
+// DisplayRows groups the readings into pipeline blocks, auxiliary blocks and
+// clocks, in presentation order.
+//
+// Only non-empty groups are returned, so a caller can render them in order
+// without checking which are empty. The groups run together on screen: the
+// model has already grouped them, and a blank row between groups would cost
+// a line of a terminal that may not have one to spare.
+func (b GpuBlocks) DisplayRows() [][]DisplayReading {
+	groups := make([][]DisplayReading, 0, 3)
+	appendGroup := func(rows []DisplayReading) {
+		if len(rows) > 0 {
+			groups = append(groups, rows)
+		}
+	}
+	blocks := make([]DisplayReading, 0, len(b.Blocks))
+	for _, r := range b.Blocks {
+		blocks = append(blocks, DisplayReading{Key: r.Key, Label: r.Label, Percent: r.Percent})
+	}
+	appendGroup(blocks)
+	aux := make([]DisplayReading, 0, len(b.AuxBlocks))
+	for _, r := range b.AuxBlocks {
+		aux = append(aux, DisplayReading{Key: r.Key, Label: r.Label, Percent: r.Percent})
+	}
+	appendGroup(aux)
+	clocks := make([]DisplayReading, 0, len(b.Clocks))
+	for _, c := range b.Clocks {
+		var pct Percent
+		if c.Percent != nil {
+			pct = *c.Percent
+		}
+		clocks = append(clocks, DisplayReading{Key: c.Key, Label: c.Label, Percent: pct, Mhz: c.Mhz})
+	}
+	appendGroup(clocks)
+	return groups
+}
+
 // BlocksStatus says why the blocks panel is or is not showing data.
 type BlocksStatus string
 
