@@ -16,11 +16,37 @@ func TestVersionFlagPrintsVersion(t *testing.T) {
 	}
 }
 
-func TestRunWithoutTUIErrorsCleanly(t *testing.T) {
-	// Phase 0: the TUI does not exist yet (Phase 2). Starting it must fail
-	// with a helpful error, never by panicking or hanging.
-	if err := run([]string{}); err == nil {
-		t.Fatal("run() = nil, want an error until the TUI lands")
+func TestCheckWithoutHardwareIsNotAnError(t *testing.T) {
+	// --check must answer "what can this machine show" even when the answer is
+	// "no GPUs", and exit with the no-device status rather than an error.
+	status, err := runWith([]string{
+		"--check", "--drm-root", "/nonexistent/drm", "--proc-root", "/proc",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("runWith(--check) = %v, want nil", err)
+	}
+	if status != cli.ExitNoDevice {
+		t.Fatalf("status = %d, want %d", status, cli.ExitNoDevice)
+	}
+}
+
+func TestCheckJSONFlagIsAccepted(t *testing.T) {
+	status, err := runWith([]string{
+		"--check", "--json", "--drm-root", "/nonexistent/drm", "--proc-root", "/proc",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("runWith(--check --json) = %v", err)
+	}
+	if status != cli.ExitNoDevice {
+		t.Fatalf("status = %d, want %d", status, cli.ExitNoDevice)
+	}
+}
+
+func TestLogIsRejectedWithHeadlessModes(t *testing.T) {
+	for _, mode := range []string{"--check", "--dump", "--devices"} {
+		if _, err := runWith([]string{mode, "--log", "s.csv"}, io.Discard); err == nil {
+			t.Errorf("%s --log was accepted; recording is an interface feature", mode)
+		}
 	}
 }
 

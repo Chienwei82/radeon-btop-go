@@ -1,5 +1,7 @@
 package ui
 
+import "github.com/gputop/gputop-go/internal/model"
+
 // TrueColorStops and ANSIStops are the gradient stop counts. Both are
 // deliberately odd so that a stop lands exactly on the 0.5 position,
 // which makes 50% render as the theme's mid colour rather than a hair
@@ -60,7 +62,7 @@ func (g Gradient) Len() int { return len(g.stops) }
 // correct answer.
 func (g Gradient) At(percent float64) string {
 	clamped := min(100.0, max(0.0, percent))
-	index := int(clamped/100.0*float64(len(g.stops)-1) + 0.5)
+	index := model.RoundHalfEven(clamped / 100.0 * float64(len(g.stops)-1))
 	return g.stops[index]
 }
 
@@ -137,9 +139,9 @@ func lerp(a, b, t float64) float64 { return a + (b-a)*t }
 // mix blends two colours; t of 0 yields start and 1 yields end.
 func mix(start, end [3]int, t float64) [3]int {
 	return [3]int{
-		int(lerp(float64(start[0]), float64(end[0]), t) + 0.5),
-		int(lerp(float64(start[1]), float64(end[1]), t) + 0.5),
-		int(lerp(float64(start[2]), float64(end[2]), t) + 0.5),
+		model.RoundHalfEven(lerp(float64(start[0]), float64(end[0]), t)),
+		model.RoundHalfEven(lerp(float64(start[1]), float64(end[1]), t)),
+		model.RoundHalfEven(lerp(float64(start[2]), float64(end[2]), t)),
 	}
 }
 

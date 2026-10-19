@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/gputop/gputop-go/internal/model"
 )
 
 // DPMRow matches one row of a pp_dpm_* table: "<level>: <N> Mhz [*]".
@@ -171,7 +173,7 @@ func ParseLinkSpeed(text string) *int {
 	if err != nil {
 		return nil
 	}
-	v := int(rate*10 + 0.5)
+	v := model.RoundHalfEven(rate * 10)
 	return &v
 }
 

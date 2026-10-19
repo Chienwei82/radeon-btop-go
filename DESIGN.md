@@ -161,15 +161,75 @@ ambiguous); `-i` is whole seconds (`atoi`).
 ## 5. TUI design (bubbletea)
 
 `Update` handles `tea.KeyPressMsg` (30 bindings), `tea.WindowSizeMsg`
-(responsive breakpoints 72/20/28), tick messages (drain snapshot → rebuild
-render buffers → record sample), flash-timer messages (alert borders). `View`
-frames pure `string` builders with lipgloss (borders, joins, color profiles).
-Process table: bubbles table fed by `procview`-equivalent pure logic (sort,
-filter, tree, idle-hiding, selection by identity, top-marker `▶`). Braille:
+(responsive breakpoints 72/20/28), snapshot messages, and flash-timer
+messages. `View` calls the pure `RenderScreen` and then resolves each cell's
+theme key to lipgloss once per frame; with `--no-color` it emits the plain
+rows, which are also what the goldens read. The cell model is the reason the
+screen needs no borders or layout engine: rows are already composed at the
+exact terminal width.
+
+Process table: the pure `procview` logic (sort, filter, tree, idle-hiding,
+selection by identity, top-marker `▶`) feeds `RenderTable`; bubbles' table
+widget was not adopted because rebuilding rows from a snapshot is cheaper and
+the identity-selection rules live in the domain, not the widget. Braille:
 `BRAILLE_BITS` verbatim, gaps preserved, per-dot-column accumulation, golden
-tests at explicit sizes. Themes: 3 palettes + monochrome; 255-stop truecolor
-ramp (odd count → 50% lands on mid), 25-stop 256-colour cube-snapped ramp.
-Overlays (filter/kill/help/picker) as stacked sub-models returning values.
+tests at explicit sizes. Themes: 5 palettes; 255-stop truecolor ramp (odd
+count → 50% lands on mid), 25-stop 256-colour cube-snapped ramp.
+
+### The event loop (`internal/ui/app.go`)
+
+One model owns the view state and the snapshot on screen, and nothing else.
+The two clocks are bubbletea commands: `waitCmd` blocks (off the render
+path) on the sampler's bounded channel, and `flashCmd` is a `tea.Tick` whose
+message flips one boolean — the only stateful part of an alert.
+
+- **Selection is by identity** `(drm-pdev, drm-client-id)`. A sample that no
+  longer contains the selected client clears the selection; the highlight
+  never jumps to whatever row took its place.
+- **Overlays own the keyboard** while open (`help`, `filter`, `kill`). The
+  kill dialog captures the target when it opens, so a table that reorders
+  under the modal cannot signal a different process.
+- **One exit path.** `Shutdown` is idempotent: it saves the state, closes the
+  recording, and stops the sampler. It runs from `q`, and again after
+  `Program.Run` returns, which is what covers a SIGTERM (the signal handler
+  asks the program to quit rather than letting the process die).
+- **Recording is thinned in the loop**, not in the writer: `log.interval_s`
+  is a clock question, and the writer stays a pure sink.
+
+### Recording (`internal/sessionlog`)
+
+CSV and JSON Lines, with zstd selected by the filename suffix (`.zst` or
+`.zstd`). The base name decides the format and the suffix decides the
+transport, so neither is declared twice. The file is opened in append mode and
+the header is seeded from the file's existing size: recording twice to one
+path extends it instead of writing a second header into the middle of the
+data. A snapshot with several GPUs becomes one row per GPU. Absence is an
+empty CSV cell and `null` in JSON, never `0` and never `N/A`. Every failure
+is a value (`Problem`), because a recording that takes the monitor down with
+it has made things worse.
+
+### Signalling (`internal/control`)
+
+The only code that can end something other than gputop. `Refusal` is pure and
+exhaustive (pid <= 0, pid 1, kernel thread, gputop itself), the unknown-signal
+fallback is the reversible one, and delivery is a package variable so the
+suite can assert what would have been sent without sending it.
+
+### Session state (`internal/config/state.go`, `state_save.go`)
+
+Reading merges the `state:` block under the config (defaults → file → state →
+flags). Writing edits the parsed YAML AST in place — comments and key order
+survive — then writes a temporary file in the same directory, fsyncs it, keeps
+the target's permissions (0600 for a new file), renames it, and fsyncs the
+directory. A document that does not parse is **not** written: merging into an
+empty document would replace the user's configuration with a bare `state:`.
+
+### Rounding (`internal/model/round.go`)
+
+Python's `round()` is half-to-even and Go's `int(x+0.5)` is half-up, so a bar
+fill differed by one cell at exact `.5` boundaries (5% of 10 cells: reference
+0, half-up 1). `RoundHalfEven` is the single helper every bar, ramp index,
+RGB lerp and PCIe link-speed parse uses; its boundary table is the test.
 
 ### Responsive rules (pure, in `internal/ui/layout.go`)
 

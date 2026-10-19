@@ -84,7 +84,7 @@ func StatRowWidth(label, value string, fraction *float64, th Theme, available in
 		return Row{Cells: cells}
 	}
 	clamped := min(100.0, max(0.0, *fraction))
-	filled := int(clamped/100.0*float64(width) + 0.5)
+	filled := model.RoundHalfEven(clamped / 100.0 * float64(width))
 	cells = append(cells, Cell{Text: strings.Repeat(BarFilled, filled), Color: ramp.At(clamped)})
 	cells = append(cells, Cell{Text: strings.Repeat(BarEmpty, width-filled), Color: th.Track})
 	cells = append(cells, Cell{Text: " " + value, Color: th.Text})

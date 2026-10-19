@@ -93,6 +93,13 @@ Numbers in the UI are grouped in thousands (`2,200 MHz`, `1,023 B`), matching
 the reference's `f"{value:,}"`; a golden test pins it so the two
 implementations cannot drift on a rendered reading.
 
+Bar fills, the gradient index, colour interpolation and the PCIe link-speed
+parse round the way Python's `round()` does — **half-to-even**, not half-up.
+`model.RoundHalfEven` is the single implementation: at an exact `.5` with an
+even integer part the reference fills *down* (5% of a 10-cell bar is 0 cells,
+not 1). The boundary table is a test, because neither suite's screen golden
+necessarily lands on a tie.
+
 ### 3.1 Core metrics
 
 Same set as the Python reference: `gpu_busy_percent`, `mem_busy_percent`,

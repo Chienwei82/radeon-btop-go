@@ -21,6 +21,11 @@ type LayoutInput struct {
 	// Alerts is the threshold state for this sample. The zero value means
 	// nothing is crossed, so the status line stays as it is.
 	Alerts model.AlertState
+	// Notice is a transient message the event loop produced: a refused
+	// signal, the theme it just switched to, a state save that failed. It is
+	// part of the layout input rather than the app so the whole screen stays
+	// one pure function.
+	Notice string
 }
 
 // headerLines is the fixed device header height; footerLines is the status
@@ -286,6 +291,12 @@ func statusLine(in LayoutInput, th Theme) Row {
 		row.Cells = append(row.Cells,
 			Cell{Text: "  ·  ", Color: th.Track},
 			Cell{Text: notice, Color: th.Warn},
+		)
+	}
+	if in.Notice != "" && in.Notice != AlertNotice(in.Alerts) {
+		row.Cells = append(row.Cells,
+			Cell{Text: "  ·  ", Color: th.Track},
+			Cell{Text: in.Notice, Color: th.Muted},
 		)
 	}
 	return row

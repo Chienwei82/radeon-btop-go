@@ -129,7 +129,7 @@ func Bar(fraction *float64, width int) string {
 		return NA
 	}
 	clamped := min(100.0, max(0.0, *fraction))
-	count := int(clamped/100.0*float64(width) + 0.5)
+	count := model.RoundHalfEven(clamped / 100.0 * float64(width))
 	return strings.Repeat(BarFilled, count) + strings.Repeat(BarEmpty, width-count)
 }
 
