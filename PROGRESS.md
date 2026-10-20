@@ -570,11 +570,13 @@ Branch `feature/pr-releases`, PR #1.
    prerelease rather than handing it assets that contradict its tag; a
    stable tag that already names a commit is never moved.
 5. **`main` requires a pull request** with strict status checks (`gates`,
-   `release`, `artifacts`), linear history and no force-push. Approvals are
+   `release`), linear history and no force-push. Approvals are
    not required (`required_approving_review_count: 0`): GitHub forbids an
    author approving their own PR, so a required approval would deadlock a
    single-maintainer repository. PR #1 moved from `REVIEW_REQUIRED` to
-   `CLEAN` once the rule was corrected.
+   `CLEAN` once the rule was corrected. (At the time this was written there
+   was a third check, `artifacts`; the 2026-10-20 pass below folded it into
+   `release`, so the pair above is what `main` requires today.)
 
 **Decisions recorded, not changed**
 
@@ -610,7 +612,9 @@ Branch `feature/pr-releases`, PR #1.
 **Next**
 
 - Merge PR #1 and confirm `v1.1.0` is published as a stable release with
-  `artifacts` and `gates` still required on `main`.
+  `gates` and `release` still required on `main`.
+  **Done 2026-10-20:** `bcc8fa7`, `v1.1.0` is `Latest`, and the required
+  checks were reduced to exactly those two in the pass below.
 - Confirm whether the local `v1.0.0` tag should be pushed to the remote at
   some point; it is currently local-only.
 
