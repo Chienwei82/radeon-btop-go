@@ -48,7 +48,7 @@ func runWith(args []string, stdout io.Writer) (int, error) {
 	fs.StringVar(&configPath, "config", "", "configuration file to load instead of the default locations")
 	fs.StringVar(&configPath, "c", "", "shorthand for --config")
 	interval := 0.0
-	fs.Float64Var(&interval, "interval", 0, "sampling interval in seconds, overriding general.interval_ms")
+	fs.Float64Var(&interval, "interval", 0, "sampling interval in seconds, overriding interval_ms")
 	fs.Float64Var(&interval, "i", 0, "shorthand for --interval")
 	drmRoot := fs.String("drm-root", "", "sysfs DRM class directory (default /sys/class/drm)")
 	procRoot := fs.String("proc-root", "", "procfs mount point (default /proc)")
