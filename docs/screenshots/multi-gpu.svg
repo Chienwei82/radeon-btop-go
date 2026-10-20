@@ -137,7 +137,13 @@
     <text x="18.00" y="338.00" fill="#61afef">╰</text>
     <text x="26.40" y="338.00" fill="#61afef">──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</text>
     <text x="1017.60" y="338.00" fill="#61afef">╯</text>
-    <text x="18.00" y="406.00" fill="#7f848e">#120  ·  metrics v1.3  ·  tick 1000 ms  ·  cpu N/A</text>
+    <text x="18.00" y="406.00" fill="#61afef">#120</text>
+    <text x="51.60" y="406.00" fill="#3a3f4b">  ·  </text>
+    <text x="93.60" y="406.00" fill="#e6e6e6">metrics v1.3</text>
+    <text x="194.40" y="406.00" fill="#3a3f4b">  ·  </text>
+    <text x="236.40" y="406.00" fill="#e6e6e6">tick 1000 ms</text>
+    <text x="337.20" y="406.00" fill="#3a3f4b">  ·  </text>
+    <text x="379.20" y="406.00" fill="#e6e6e6">cpu N/A</text>
     <text x="18.00" y="423.00" fill="#61afef" font-weight="bold">q</text>
     <text x="26.40" y="423.00" fill="#7f848e"> quit</text>
     <text x="68.40" y="423.00" fill="#3a3f4b"> · </text>

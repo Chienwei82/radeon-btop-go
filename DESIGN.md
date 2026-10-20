@@ -163,18 +163,27 @@ ambiguous); `-i` is whole seconds (`atoi`).
 `Update` handles `tea.KeyPressMsg` (30 bindings), `tea.WindowSizeMsg`
 (responsive breakpoints 72/20/28), snapshot messages, and flash-timer
 messages. `View` calls the pure `RenderScreen` and then resolves each cell's
-theme key to lipgloss once per frame; with `--no-color` it emits the plain
-rows, which are also what the goldens read. The cell model keeps the screen a
-pure row composition rather than a layout engine: panel frames are drawn
-inside that model by `PanelBox`, so the divisions are golden-testable and
-every row is still composed at the exact terminal width. A frame is exactly
-the width it was given, and bodies on a shared row are padded to one baseline
-(`padBody`), so two panels close their bottom borders on the same line.
+theme key through a cache of one lipgloss style per colour key; with
+`--no-color` it emits the plain rows, which are also what the goldens read.
+The cell model keeps the screen a pure row composition rather than a layout
+engine: panel frames are drawn inside that model by `PanelBox`, so the
+divisions are golden-testable and every row is still composed at the exact
+terminal width. A frame is exactly the width it was given, and bodies on a
+shared row are padded to one baseline (`padBody`), so two panels close their
+bottom borders on the same line.
 
 Cell colour keys are a hex value plus optional `|bold` / `|reverse`
-attributes. Both are real style modifiers (`parseCellStyle`), which matters
+attributes. Both are real style modifiers (`ParseCellStyle`), which matters
 for the active GPU badge: before the parser existed, `#e6e6e6|reverse` was
 handed to lipgloss as a colour and the badge silently lost its highlight.
+The same parser serves `tools/screenshots`, so a generated screenshot cannot
+disagree with the terminal about a cell's style.
+
+Width is measured in terminal cells, not runes: `DisplayWidth` /
+`CutWidth` wrap `github.com/clipperhouse/displaywidth`. CJK and emoji names
+occupy two columns and combining marks none, so every frame, cut, pad and
+process-column measurement goes through one helper (`internal/ui/width.go`).
+`fitRow` remains the hard last-resort bound and cuts without an ellipsis.
 
 Key hints use the same split at the row level: `footerHints` paints the key
 with the accent and bold, the label stays muted, and the groups are separated
@@ -195,14 +204,22 @@ count → 50% lands on mid), 25-stop 256-colour cube-snapped ramp.
 One model owns the view state and the snapshot on screen, and nothing else.
 The two clocks are bubbletea commands: `waitCmd` blocks (off the render
 path) on the sampler's bounded channel, and `flashCmd` is a `tea.Tick` whose
-message flips one boolean — the only stateful part of an alert.
+message flips one boolean — the only stateful part of an alert. `App.View`
+passes that phase into `LayoutInput.FlashOn`; `RenderScreen` sets a transient
+`Theme.Border`, and `PanelBox` paints the whole frame with it while the title
+stays on the accent. `AlertBorderColor` therefore reaches the screen instead
+of being tested dead code (SPEC FR12).
 
 - **Selection is by identity** `(drm-pdev, drm-client-id)`. A sample that no
   longer contains the selected client clears the selection; the highlight
   never jumps to whatever row took its place.
-- **Overlays own the keyboard** while open (`help`, `filter`, `kill`). The
-  kill dialog captures the target when it opens, so a table that reorders
-  under the modal cannot signal a different process.
+- **Overlays own the keyboard** while open (`help`, `filter`, `kill`). They
+  are drawn by `PanelBox` like every primary panel: a modal replaces the
+  screen it covers, so it reads as its own framed screen rather than loose
+  text floating over the dashboard. The fixed widths (`FilterWidth`,
+  `KillWidth`, `HelpWidth`) are outer widths; the body gets width minus the
+  frame overhead. The kill dialog captures the target when it opens, so a
+  table that reorders under the modal cannot signal a different process.
 - **One exit path.** `Shutdown` is idempotent: it saves the state, closes the
   recording, and stops the sampler. It runs from `q`, and again after
   `Program.Run` returns, which is what covers a SIGTERM (the signal handler
@@ -279,8 +296,18 @@ is pinned by a test rather than discovered on a terminal:
   the eight-line crop applied). The blocks panel is shown alone: the active
   profile is already named on the sensors panel, while per-block utilisation
   appears nowhere else.
-- The alert notice goes last on the status line, so a narrow terminal takes
-  the width from the notice rather than from the facts.
+- When the sensor body is cropped, the last row says `… N more`: a panel
+  that silently drops half its readings looks like a card that stopped
+  reporting them. The marker costs one reading, which is the honest trade.
+- The process table keeps the reference's `1fr` sizing: it gets one third of
+  the remaining height and pads with blank rows when there are few clients.
+  Making its height data-dependent would reorder the screen as processes
+  come and go, so the padding is deliberate.
+- The status line is tokenised: the sequence number, each fact and each
+  separator are separate cells (values in text/accent, separators in the
+  track, warnings in warn), while the plain text stays the same. The alert
+  notice is still appended last, so a narrow terminal takes the width from
+  the notice rather than from the facts.
 
 ## 6. Open risks (`UNVERIFIED`)
 

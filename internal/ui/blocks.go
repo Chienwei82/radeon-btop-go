@@ -21,7 +21,7 @@ import (
 // bars, because fourteen N/A labels answer nothing.
 func BlocksPanel(blocks *model.GpuBlocks, th Theme, available int, gradient *Gradient) []Row {
 	if blocks == nil {
-		return []Row{{Cells: []Cell{{Text: cutRunes("waiting for radeontop", available), Color: th.Muted}}}}
+		return []Row{{Cells: []Cell{{Text: CutWidth("waiting for radeontop", available), Color: th.Muted}}}}
 	}
 	rows := []Row{}
 	for _, group := range blocks.DisplayRows() {
@@ -30,7 +30,7 @@ func BlocksPanel(blocks *model.GpuBlocks, th Theme, available int, gradient *Gra
 		}
 	}
 	if len(rows) == 0 {
-		return []Row{{Cells: []Cell{{Text: cutRunes("no blocks reported", available), Color: th.Muted}}}}
+		return []Row{{Cells: []Cell{{Text: CutWidth("no blocks reported", available), Color: th.Muted}}}}
 	}
 	return rows
 }

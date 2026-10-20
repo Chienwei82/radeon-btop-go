@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/gputop/gputop-go/internal/model"
@@ -21,6 +22,10 @@ type LayoutInput struct {
 	// Alerts is the threshold state for this sample. The zero value means
 	// nothing is crossed, so the status line stays as it is.
 	Alerts model.AlertState
+	// FlashOn is the current phase of the alert flash. It only matters when
+	// Alerts is active: the frame alternates between the alert colour and
+	// the track colour, so a crossed threshold is visible at a glance.
+	FlashOn bool
 	// Notice is a transient message the event loop produced: a refused
 	// signal, the theme it just switched to, a state save that failed. It is
 	// part of the layout input rather than the app so the whole screen stays
@@ -68,6 +73,11 @@ func RenderScreen(in LayoutInput) []Row {
 	th := in.Theme
 	if th.Name == "" {
 		th = DefaultTheme
+	}
+	if in.Alerts.Active() {
+		// The border is a transient seam: it belongs to this render, not to
+		// the palette, so the theme itself never learns about the flash.
+		th.Border = AlertBorderColor(in.Alerts, in.FlashOn, th)
 	}
 	width, height := in.Width, in.Height
 	device := focusedDevice(in.Snapshot, in.View.DeviceIndex)
@@ -260,9 +270,17 @@ func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, wi
 	if lines <= 0 {
 		return nil
 	}
-	readout := 1
+	// Build the readout once: it used to be built twice, first with a nil
+	// gradient just to count its rows and then again to paint them, which
+	// rebuilt the gradient ramp for every device on every frame.
+	var utilisation []Row
 	if device != nil {
-		readout = min(lines, len(UtilisationRows(*device, th, width, nil)))
+		grad := NewGradient(th, false)
+		utilisation = UtilisationRows(*device, th, width, &grad)
+	}
+	readout := 1
+	if len(utilisation) > 0 {
+		readout = min(lines, len(utilisation))
 	}
 	memory := in.Height >= MinHeightForMemoryGraphs && width >= 40 && lines-readout >= 4
 	overhead := readout
@@ -274,11 +292,8 @@ func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, wi
 	memH := max(1, graphCells-utilH)
 
 	out := graphRows(busySeries(in.History, deviceIndex(device)), utilH, width)
-	if device != nil {
-		grad := NewGradient(th, false)
-		for _, r := range UtilisationRows(*device, th, width, &grad) {
-			out = append(out, fitRow(r, width))
-		}
+	for _, r := range utilisation {
+		out = append(out, fitRow(r, width))
 	}
 	if memory {
 		half := (width - 1) / 2
@@ -296,9 +311,11 @@ func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, wi
 
 // sensorBlock is the sensors body, truncated to the space it was given: on a
 // short terminal the bottom sensors scroll away rather than pushing the
-// graphs off the screen. The frame and title are added by the caller, so a
-// short body is padded with blank rows and the bottom border still lines up
-// with the graph panel beside it.
+// graphs off the screen. A truncation costs one row to say "… N more": a
+// panel that silently drops half its readings looks like a card that stopped
+// reporting them. The frame and title are added by the caller, so a short
+// body is padded with blank rows and the bottom border still lines up with
+// the graph panel beside it.
 func sensorBlock(device *model.AmdgpuMetrics, th Theme, lines, width int) []Row {
 	if lines <= 0 {
 		return nil
@@ -306,11 +323,22 @@ func sensorBlock(device *model.AmdgpuMetrics, th Theme, lines, width int) []Row 
 	out := make([]Row, 0, lines)
 	if device != nil {
 		grad := NewGradient(th, false)
-		for _, r := range SensorsPanel(*device, th, width, &grad) {
-			if len(out) >= lines {
-				break
+		sensors := SensorsPanel(*device, th, width, &grad)
+		hidden := 0
+		if len(sensors) > lines {
+			hidden = len(sensors) - lines + 1
+			keep := lines - 1
+			if keep < 0 {
+				keep = 0
 			}
+			sensors = sensors[:keep]
+		}
+		for _, r := range sensors {
 			out = append(out, fitRow(r, width))
+		}
+		if hidden > 0 {
+			marker := Row{Cells: []Cell{{Text: fmt.Sprintf("… %d more", hidden), Color: th.Muted}}}
+			out = append(out, fitRow(marker, width))
 		}
 	}
 	for len(out) < lines {
@@ -332,7 +360,7 @@ func processBlock(in LayoutInput, th Theme, lines, width int) []Row {
 
 	body := make([]Row, 0, max(0, lines-boxOverheadY))
 	if lines > boxOverheadY {
-		body = append(body, Row{Cells: []Cell{{Text: cutRunes(title, contentWidth), Color: th.Muted}}})
+		body = append(body, Row{Cells: []Cell{{Text: CutWidth(title, contentWidth), Color: th.Muted}}})
 	}
 	if len(body) < lines-boxOverheadY {
 		sel := in.View.Selected
@@ -409,7 +437,7 @@ func keyHints(th Theme, width int) Row {
 	cells := make([]Cell, 0, len(footerHints)*3)
 	used := 0
 	for i, h := range footerHints {
-		group := len([]rune(h.Key)) + 1 + len([]rune(h.Label))
+		group := DisplayWidth(h.Key) + 1 + DisplayWidth(h.Label)
 		sep := 0
 		if i > 0 {
 			sep = 3 // " · "
@@ -427,7 +455,7 @@ func keyHints(th Theme, width int) Row {
 		used += group
 	}
 	if len(cells) == 0 {
-		return fitRow(Row{Cells: []Cell{{Text: cutRunes("q quit", width), Color: th.Muted}}}, width)
+		return fitRow(Row{Cells: []Cell{{Text: CutWidth("q quit", width), Color: th.Muted}}}, width)
 	}
 	return fitRow(Row{Cells: cells}, width)
 }
@@ -546,7 +574,7 @@ func poolSeries(history []model.GpuSnapshot, index int, pick func(model.AmdgpuMe
 func padRowTo(r Row, w int) Row {
 	n := 0
 	for _, c := range r.Cells {
-		n += len([]rune(c.Text))
+		n += DisplayWidth(c.Text)
 	}
 	if n < w {
 		r.Cells = append(r.Cells, Cell{Text: strings.Repeat(" ", w-n)})

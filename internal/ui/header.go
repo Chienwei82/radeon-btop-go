@@ -32,7 +32,7 @@ func HeaderPanel(m model.AmdgpuMetrics, th Theme, uptimeS, intervalS float64) Ro
 	}
 	cells = append(cells, Cell{Text: "\n", Color: ""})
 	up := FmtDuration(&uptimeS)
-	cells = append(cells, Cell{Text: padRight("up "+up, 24), Color: th.Muted})
+	cells = append(cells, Cell{Text: padWidthRight("up "+up, 24), Color: th.Muted})
 	cells = append(cells, Cell{Text: fmt.Sprintf("every %gs", intervalS), Color: th.Muted})
 	cells = append(cells, Cell{Text: "  ·  ", Color: th.Track})
 	abi := "sysfs"

@@ -81,6 +81,42 @@ func TestAlertBorderColorReturnsToTheAccentWhenTheConditionClears(t *testing.T) 
 	}
 }
 
+// The flash has to reach the screen: a state machine that alternates a flag
+// nobody paints is not an alert. Every frame changes colour with the phase.
+func TestActiveAlertFlashesThePanelFrames(t *testing.T) {
+	in := screenInput()
+	in.Width, in.Height = 120, 40
+	in.Alerts = model.AlertState{Level: model.AlertAlert}
+	for _, flash := range []bool{false, true} {
+		in.FlashOn = flash
+		want := AlertBorderColor(in.Alerts, flash, DefaultTheme)
+		frames := 0
+		for _, row := range RenderScreen(in) {
+			plain := Plain(row)
+			if !strings.HasPrefix(plain, boxTopLeft) && !strings.HasPrefix(plain, boxBottomLeft) {
+				continue
+			}
+			frames++
+			if got := row.Cells[0].Color; got != want {
+				t.Fatalf("flash=%v frame colour = %q, want %q", flash, got, want)
+			}
+		}
+		if frames == 0 {
+			t.Fatalf("flash=%v drew no frames", flash)
+		}
+	}
+}
+
+func TestNoAlertLeavesTheFramesOnTheAccent(t *testing.T) {
+	in := screenInput()
+	in.Width, in.Height = 120, 40
+	for _, row := range RenderScreen(in) {
+		if strings.HasPrefix(Plain(row), boxTopLeft) && row.Cells[0].Color != DefaultTheme.Accent {
+			t.Fatalf("frame colour = %q with nothing crossed, want the accent", row.Cells[0].Color)
+		}
+	}
+}
+
 func TestAlertNoticeNamesTheBreach(t *testing.T) {
 	snap := model.GpuSnapshot{Devices: []model.AmdgpuMetrics{hotMetrics()}}
 	state := EvaluateAlerts(snap, model.Thresholds{TempC: 90}, true)

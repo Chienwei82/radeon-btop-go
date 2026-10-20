@@ -76,8 +76,8 @@ func StatRowWidth(label, value string, fraction *float64, th Theme, available in
 		ramp = NewGradient(th, true)
 	}
 	var cells []Cell
-	cells = append(cells, Cell{Text: padRight(label, labelWidth), Color: th.Muted})
-	width := FitBarWidth(available, len(value)+1, labelWidth)
+	cells = append(cells, Cell{Text: padWidthRight(label, labelWidth), Color: th.Muted})
+	width := FitBarWidth(available, DisplayWidth(value)+1, labelWidth)
 	if fraction == nil {
 		cells = append(cells, Cell{Text: strings.Repeat(BarEmpty, width), Color: th.Track})
 		cells = append(cells, Cell{Text: " " + NA, Color: th.Muted})
@@ -93,16 +93,6 @@ func StatRowWidth(label, value string, fraction *float64, th Theme, available in
 
 // PoolRow builds a memory-pool row: "label  bar  used / total (pct%)".
 func PoolRow(label string, pool model.MemoryPool, th Theme, available int, gradient *Gradient) Row {
-	used, total := model.Bytes(-1), model.Bytes(-1)
-	var usedP, totalP *model.Bytes
-	if pool.Used != nil {
-		used, usedP = *pool.Used, pool.Used
-	}
-	if pool.Total != nil {
-		total, totalP = *pool.Total, pool.Total
-	}
-	_ = usedP
-	_ = totalP
 	pct := pool.Percent()
 	var pctF *float64
 	if pct != nil {
@@ -121,14 +111,5 @@ func PoolRow(label string, pool model.MemoryPool, th Theme, available int, gradi
 	if pct != nil {
 		value += fmt.Sprintf(" (%.0f%%)", float64(*pct))
 	}
-	_ = used
-	_ = total
 	return StatRow(label, value, pctF, th, available, gradient)
-}
-
-func padRight(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(s))
 }

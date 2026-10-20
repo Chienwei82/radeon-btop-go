@@ -52,7 +52,7 @@ func headingRow(th Theme, sort SortState, cols []model.SortColumn, widths []int)
 			cells = append(cells, Cell{Text: " "})
 		}
 		cells = append(cells, Cell{
-			Text:  padRunesRight(sort.Heading(c), widths[i]),
+			Text:  padWidthRight(sort.Heading(c), widths[i]),
 			Color: th.Muted,
 		})
 	}
@@ -79,17 +79,17 @@ func processRow(th Theme, pr ProcessRow, cols []model.SortColumn, widths []int, 
 		var text string
 		switch {
 		case c == model.SortCommand:
-			text = padRunesRight(pr.Prefix()+values[columnIndex(c)], w)
+			text = padWidthRight(pr.Prefix()+values[columnIndex(c)], w)
 		case c == model.SortPID:
 			if marked {
-				text = TopMarker + padRunesLeft(values[columnIndex(c)], w-1)
+				text = TopMarker + padWidthLeft(values[columnIndex(c)], w-1)
 			} else {
-				text = padRunesLeft(values[columnIndex(c)], w)
+				text = padWidthLeft(values[columnIndex(c)], w)
 			}
 		case textColumn(c):
-			text = padRunesRight(values[columnIndex(c)], w)
+			text = padWidthRight(values[columnIndex(c)], w)
 		default:
-			text = padRunesLeft(values[columnIndex(c)], w)
+			text = padWidthLeft(values[columnIndex(c)], w)
 		}
 		cells = append(cells, Cell{Text: text, Color: color})
 	}
@@ -126,7 +126,7 @@ func tableLayout(width int, sort SortState) ([]model.SortColumn, []int) {
 			widths[i]++ // marker slot
 		}
 		// The active heading carries " ▼", which can exceed the column.
-		if h := len([]rune(sort.Heading(c))); h > widths[i] {
+		if h := DisplayWidth(sort.Heading(c)); h > widths[i] {
 			widths[i] = h
 		}
 	}
@@ -179,18 +179,14 @@ func fitRow(r Row, width int) Row {
 	}
 	total := 0
 	for _, c := range r.Cells {
-		total += len([]rune(c.Text))
+		total += DisplayWidth(c.Text)
 	}
 	for i := len(r.Cells) - 1; i >= 0 && total > width; i-- {
-		excess := total - width
-		runes := []rune(r.Cells[i].Text)
-		if len(runes) <= excess {
-			total -= len(runes)
-			r.Cells[i].Text = ""
-			continue
-		}
-		r.Cells[i].Text = string(runes[:len(runes)-excess])
-		total = width
+		cellWidth := DisplayWidth(r.Cells[i].Text)
+		allowed := cellWidth - (total - width)
+		text := truncateWidth(r.Cells[i].Text, allowed)
+		total -= cellWidth - DisplayWidth(text)
+		r.Cells[i].Text = text
 	}
 	return r
 }
@@ -217,38 +213,4 @@ func columnIndex(c model.SortColumn) int {
 		}
 	}
 	return -1
-}
-
-// cutRunes narrows s to at most w cells, marking a cut with an ellipsis so
-// a truncated reading never reads as a complete one.
-func cutRunes(s string, w int) string {
-	if w <= 0 {
-		return ""
-	}
-	runes := []rune(s)
-	if len(runes) <= w {
-		return s
-	}
-	if w == 1 {
-		return "…"
-	}
-	return string(runes[:w-1]) + "…"
-}
-
-// padRunesLeft right-aligns s in w cells (numbers line up on the digit).
-func padRunesLeft(s string, w int) string {
-	s = cutRunes(s, w)
-	if n := w - len([]rune(s)); n > 0 {
-		return strings.Repeat(" ", n) + s
-	}
-	return s
-}
-
-// padRunesRight left-aligns s in w cells.
-func padRunesRight(s string, w int) string {
-	s = cutRunes(s, w)
-	if n := w - len([]rune(s)); n > 0 {
-		return s + strings.Repeat(" ", n)
-	}
-	return s
 }

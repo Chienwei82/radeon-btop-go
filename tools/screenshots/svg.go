@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/gputop/gputop-go/internal/ui"
 )
@@ -47,7 +46,7 @@ func renderSVG(title string, rows []ui.Row, cols, lines int) string {
 			}
 			fill, bold, reverse := cellStyle(cell.Color)
 			x := svgPadding + float64(col)*svgCharWidth
-			runWidth := float64(utf8.RuneCountInString(cell.Text)) * svgCharWidth
+			runWidth := float64(ui.DisplayWidth(cell.Text)) * svgCharWidth
 			y := svgPadding + float64(line)*svgLineHeight
 			if reverse {
 				fmt.Fprintf(&b, "    <rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\"/>\n",
@@ -60,7 +59,7 @@ func renderSVG(title string, rows []ui.Row, cols, lines int) string {
 			}
 			fmt.Fprintf(&b, "    <text x=\"%.2f\" y=\"%.2f\" fill=\"%s\"%s>%s</text>\n",
 				x, y+svgFontSize, fill, weight, xmlEscape(cell.Text))
-			col += utf8.RuneCountInString(cell.Text)
+			col += ui.DisplayWidth(cell.Text)
 		}
 	}
 	b.WriteString("  </g>\n</svg>\n")
@@ -98,26 +97,19 @@ func gridRows(rows []ui.Row, height int) [][]ui.Cell {
 // or "|reverse") to an SVG fill. An empty key is the terminal's default
 // colour. A reverse-video run is drawn as a coloured rect with background
 // text, which is how a terminal renders it.
+//
+// The grammar comes from ui.ParseCellStyle, the same parser the terminal
+// uses; a second copy here is how the gallery and the product drift apart.
 func cellStyle(color string) (fill string, bold, reverse bool) {
 	if color == "" {
 		return svgDefaultText, false, false
 	}
-	for _, part := range strings.Split(color, "|") {
-		switch part {
-		case "bold":
-			bold = true
-		case "reverse":
-			reverse = true
-		default:
-			if strings.HasPrefix(part, "#") {
-				fill = part
-			}
-		}
-	}
+	style := ui.ParseCellStyle(color)
+	fill = style.Colour
 	if fill == "" {
 		fill = svgDefaultText
 	}
-	return fill, bold, reverse
+	return fill, style.Bold, style.Reverse
 }
 
 // overlayRows centres an overlay box over base the way App.withOverlay does:
@@ -125,7 +117,7 @@ func cellStyle(color string) (fill string, bold, reverse bool) {
 func overlayRows(base, box []ui.Row, width, height int) []ui.Row {
 	boxWidth := 0
 	for _, row := range box {
-		boxWidth = max(boxWidth, utf8.RuneCountInString(ui.Plain(row)))
+		boxWidth = max(boxWidth, ui.DisplayWidth(ui.Plain(row)))
 	}
 	boxWidth = min(boxWidth, width)
 
@@ -158,12 +150,9 @@ func fitCells(cells []ui.Cell, width int) []ui.Cell {
 		if remaining <= 0 {
 			break
 		}
-		runes := []rune(cell.Text)
-		if len(runes) > remaining {
-			runes = runes[:remaining]
-		}
-		out = append(out, ui.Cell{Text: string(runes), Color: cell.Color})
-		remaining -= len(runes)
+		text := ui.CutWidth(cell.Text, remaining)
+		out = append(out, ui.Cell{Text: text, Color: cell.Color})
+		remaining -= ui.DisplayWidth(text)
 	}
 	return out
 }

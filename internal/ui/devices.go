@@ -61,7 +61,7 @@ func miniBar(percent *float64, th Theme) Row {
 func TabWidth(devices []model.AmdgpuMetrics, position int) int {
 	m := devices[position]
 	plain := Plain(tabLabel(m, GetTheme("default"), m.Device.Index == 0, position+1))
-	return max(MinTabWidth, len([]rune(plain)))
+	return max(MinTabWidth, DisplayWidth(plain))
 }
 
 // TabSpan is one tab's drawn extent: the device position and its cell span.
