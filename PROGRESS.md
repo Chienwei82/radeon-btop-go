@@ -569,8 +569,12 @@ Branch `feature/pr-releases`, PR #1.
    which only exists after the merge. Re-pushing deletes and rebuilds the
    prerelease rather than handing it assets that contradict its tag; a
    stable tag that already names a commit is never moved.
-5. **`main` requires a pull request** with one dismissing review, strict status
-   checks (`gates`, `release`, `artifacts`), linear history and no force-push.
+5. **`main` requires a pull request** with strict status checks (`gates`,
+   `release`, `artifacts`), linear history and no force-push. Approvals are
+   not required (`required_approving_review_count: 0`): GitHub forbids an
+   author approving their own PR, so a required approval would deadlock a
+   single-maintainer repository. PR #1 moved from `REVIEW_REQUIRED` to
+   `CLEAN` once the rule was corrected.
 
 **Decisions recorded, not changed**
 
@@ -612,8 +616,69 @@ Branch `feature/pr-releases`, PR #1.
 
 ---
 
-- Keep editor payloads < 6000 chars per call; use heredocs/`cat >>` for docs.
-- Long podman builds: `nohup ... &` + poll the log file; never block 30 s+.
+## Simplifying CI, and the two defects the cross-environment check exposed (2026-10-20)
+
+**Scope:** post-v1 delivery work. Not a phase, and it does not move the version.
+Branch `ci/simplify-release`.
+
+**What changed**
+
+1. **`release.yml` is one job, not two.** `artifacts` and `publish` handed files
+   over through the artifact storage, and the fork case was the only reason for
+   the split. That is a step condition, not a job boundary: publishing is now an
+   `if` on a step inside a single `release` job, with no outputs to thread and no
+   second checkout. A skipped *job* would never report and so could not be a
+   required check; a skipped *step* costs nothing.
+2. **The duplicate release job in `ci.yml` is gone.** It built the tarball and
+   verified its checksum, which `release.yml` already does on the same event, so
+   every pull request paid for the same build twice.
+3. **Required checks are now `gates` and `release`** — one per workflow.
+
+**Two defects the cross-environment check found**
+
+Both were invisible while one machine built both artifacts, which is why "two
+consecutive builds are byte-identical" was true and still misleading.
+
+1. **The tarball carried the builder's umask.** `mkdir` and `cp` in
+   `release.sh` take the umask and `tar` records the modes; `git archive`
+   writes `0000664`/`0000775` under umask `0002` against `0644`/`0755` under
+   `0022`. Rebuilding `bcc8fa7` here produced a tarball that differed from the
+   published one in exactly **56 bytes**: every one of them a mode digit or the
+   header checksum that follows from it, with the contents identical. Both
+   scripts now pin the tree they stage (`find -type d` → 0755, `find -type f` →
+   0644, executables → 0755).
+2. **`SOURCE_DATE_EPOCH` made the AppImage build fail.** `build_appimage.sh`
+   read the variable to choose the epoch and then passed `-all-time` to
+   `mksquashfs`, which refuses both at once: *"SOURCE_DATE_EPOCH and command
+   line options can't be used at the same time to set timestamp(s)"*. Exporting
+   the reproducible-build convention therefore turned a correct build into a
+   hard failure. The variable is now unset for that one call.
+
+**Verified — the strong form**
+
+- Rebuilt `bcc8fa7` from a `git archive` on this machine, with
+  `SOURCE_DATE_EPOCH` exported, and got artifacts **byte-identical to the ones
+  CI published**: tarball
+  `27f39648ae68abc926aa82c2bad0e91b7bbf91808111c4429ec966a3aa5c68c2`, AppImage
+  `3312e7811d30c7abb17492f288dede273a3cce2e8f6d597420b2ecfda899eaef`. The local
+  `tar` 1.35 / `gzip` 1.14 against the runner's own set, so this is
+  reproducibility **across environments**, not only across runs.
+- The same source under `umask 0002` gives the same two hashes. Under the
+  pre-fix `release.sh` the same umask gave
+  `81c4f20063d1130e23ef657c1fa1ff40a2369035700370633e01d0c05c14fb18`, so the
+  check is not vacuous: it fails on the old script and passes on the new one.
+- `gofmt -l .` empty, `go vet` clean, `golangci-lint` 0 issues, `go test ./...`
+  green (11 packages), `./scripts/check_packaging.sh` clean at `(version 1.1.0)`.
+- `bash -n` on all four scripts; both workflows parse as YAML with one job each.
+
+**Branches**
+
+The seven phase and post-v1 branches were ancestors of `main` (ahead=0) and
+were deleted from the remote after this merge. `feature/pr-releases` was
+squash-merged, so it was not an ancestor; its one commit that had never reached
+`main` (the approval documentation) was cherry-picked here before deletion.
+
+---
 - `BRAILLE_BITS` is the single source of truth for the dot layout (dots 1–3
   and 7 form the LEFT column).
 - radeontop splits diagnostics across stdout AND stderr; drain both.

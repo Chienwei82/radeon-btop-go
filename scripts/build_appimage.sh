@@ -126,14 +126,29 @@ install -m 0644 "${REPO_ROOT}/packaging/appimage/gputop.desktop" \
     "${APPDIR}/usr/share/applications/gputop.desktop"
 
 # --- build ------------------------------------------------------------------
+# mkdir and install carry the umask into the AppDir and squashfs records the
+# modes it finds, so a directory created under umask 0002 would be 0775 where
+# the same build under umask 0022 gives 0755, and the AppImage would differ.
+# The modes are pinned for the same reason the timestamps are pinned below: the
+# artifact has to be a function of the source, not of the machine.
+find "${APPDIR}" -type d -exec chmod 0755 {} +
+find "${APPDIR}" -type f -exec chmod 0644 {} +
+chmod 0755 "${APPDIR}/AppRun" "${APPDIR}/usr/bin/gputop"
+
 printf 'appimage: packaging %s\n' "${TARGET}"
 rm -f "${TARGET}"
 # mksquashfs records the modification time of every file, so an AppDir whose
 # files carry the time of the build yields a different AppImage on every run.
 # -all-time pins them all to the commit date, which makes the artifact a
 # function of the source rather than of the moment it was built.
+#
+# SOURCE_DATE_EPOCH is unset for this call on purpose: mksquashfs refuses to
+# combine it with -all-time ("can't be used at the same time to set
+# timestamp(s)"), and a caller who exports that variable - the reproducible
+# build convention, and what release.sh reads - would otherwise turn a correct
+# build into a hard failure.
 epoch="${SOURCE_DATE_EPOCH:-$(git -C "${REPO_ROOT}" log -1 --format=%ct 2>/dev/null || date +%s)}"
-APPIMAGE_EXTRACT_AND_RUN=1 "${TOOL}" --runtime-file "${RUNTIME}" \
+env -u SOURCE_DATE_EPOCH APPIMAGE_EXTRACT_AND_RUN=1 "${TOOL}" --runtime-file "${RUNTIME}" \
     --mksquashfs-opt "-all-time" --mksquashfs-opt "${epoch}" \
     "${APPDIR}" "${TARGET}"
 

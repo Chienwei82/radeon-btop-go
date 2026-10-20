@@ -149,6 +149,20 @@ comes from a pinned release (passed in with `--runtime-file`) instead of the
 timestamps are pinned to the commit date (`mksquashfs -all-time`). Two
 consecutive builds are byte-identical.
 
+The file **modes** are pinned too, and for a less obvious reason: `mkdir` and
+`install` carry the umask of whoever runs the build, and squashfs records the
+modes it finds. Measured, the same commit built under umask `0002` and under
+`0022` gave directories of `0775` and `0755` and produced AppImages that
+differed. `scripts/release.sh` and `scripts/build_appimage.sh` now `chmod` the
+tree they stage, which is what makes the checksum a property of the source
+rather than of the machine.
+
+One subtlety worth knowing if you script around these tools: `mksquashfs`
+refuses to combine `-all-time` with `SOURCE_DATE_EPOCH` ("can't be used at the
+same time to set timestamp(s)"). The script honours `SOURCE_DATE_EPOCH` when
+choosing the epoch and unsets it for the `mksquashfs` call, so exporting the
+reproducible-build convention does not turn a correct build into a failure.
+
 ### The AppDir source
 
 `packaging/appimage/` holds the hand-written parts of the AppImage:
@@ -177,15 +191,22 @@ Two rules keep the tags and the artifacts honest:
   pushed again, the old prerelease is deleted and rebuilt rather than given
   assets that disagree with its tag.
 
-The `main` branch is protected: it requires a pull request with one
-approving review, a linear history, resolved conversations and the
-`gates`, `release` and `artifacts` checks, and force-pushes and deletions
-are refused.
+The `main` branch is protected: it requires a pull request with a linear
+history, resolved conversations and the `gates` and `release` checks, and
+force-pushes and deletions are refused.
 
-Those three contexts are exactly the jobs that run on every pull request.
-The `publish` job is deliberately **not** required: it is skipped for
-forks, and requiring a check that never reports would block a fork pull
-request forever.
+Approvals are **not** required: `required_approving_review_count` is `0`.
+GitHub never lets an author approve their own pull request, so requiring one
+would block every pull request in a single-maintainer repository — the
+branch would be protected from itself. The pull request itself is still
+mandatory; only the sign-off is not.
+
+Those two contexts are exactly the jobs that run on every pull request, one
+per workflow: `gates` in `ci.yml` and `release` in `release.yml`. The release
+job builds and publishes in a single job, and publishing is a **step**
+condition that is skipped for forks — not a job condition. A job that is
+skipped for forks would never report, and requiring it would block a fork
+pull request forever; a step inside a job that always runs costs nothing.
 
 ---
 

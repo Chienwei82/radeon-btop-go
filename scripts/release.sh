@@ -74,6 +74,16 @@ fi
 cp "${REPO_ROOT}/packaging/man/gputop.1" "${STAGE}/packaging/man/"
 cp "${REPO_ROOT}/packaging/completions/"* "${STAGE}/packaging/completions/"
 
+# The staging tree is built with mkdir and cp, and both of those carry the
+# builder's umask: with umask 0002 the directories land at 0775 and the copied
+# files at 0664, with umask 0022 they land at 0755 and 0644. tar records those
+# modes, so without this the checksum of the tarball would depend on who ran
+# the build. Every mode is pinned instead, which makes the archive a function
+# of the source.
+find "${STAGE}" -type d -exec chmod 0755 {} +
+find "${STAGE}" -type f -exec chmod 0644 {} +
+chmod 0755 "${STAGE}/gputop"
+
 printf 'release: verifying the binary\n'
 if command -v file >/dev/null 2>&1; then
     file "${STAGE}/gputop"
