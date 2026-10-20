@@ -1,0 +1,145 @@
+# Incremental releases: every pull request produces a .tar.gz and an .AppImage,
+# and every merge into main publishes a tagged release.
+#
+# The version is derived, never typed: a PR gets v<base>-pr.<number> as a
+# prerelease that is refreshed on every push, and a merge into main publishes
+# v<base> as a stable release. The artifacts themselves come from the same
+# scripts the developer runs locally (scripts/release.sh and
+# scripts/build_appimage.sh), so CI proves the local procedure rather than
+# duplicating it.
+#
+# The AppImage is built with appimagetool run through
+# APPIMAGE_EXTRACT_AND_RUN=1: GitHub's runners have no FUSE, and the tool
+# unpacks itself instead of mounting when that variable is set.
+name: release
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  artifacts:
+    # A fork cannot write to this repository's releases, so the job is skipped
+    # there rather than failing on a permission the PR cannot grant.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tags matter: the release workflow reads them to decide whether
+          # a release already exists for the version it is about to publish.
+          fetch-depth: 0
+
+      - name: Install the packaging tools
+        # appimagetool shells out to mksquashfs, and validates the desktop file
+        # when desktop-file-validate is present.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            squashfs-tools desktop-file-utils file
+
+      - name: Derive the version
+        id: version
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          base="$(sed -nE 's/^var version = "([^"]+)"$/\\1/p' cmd/gputop/main.go)"
+          if [ -z "${base}" ]; then
+            echo "release: cannot read the version from cmd/gputop/main.go" >&2
+            exit 1
+          fi
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            version="${base}-pr.${PR_NUMBER}"
+          else
+            version="${base}"
+          fi
+          {
+            echo "base=${base}"
+            echo "version=${version}"
+            echo "tag=v${version}"
+          } >> "${GITHUB_OUTPUT}"
+          printf 'release: version %s (tag v%s)\n' "${version}" "${version}"
+
+      - name: Build the tarball
+        # The script builds the release stage of the Containerfile and stamps
+        # the derived version into the binary.
+        run: ./scripts/release.sh "${{ steps.version.outputs.version }}"
+
+      - name: Build the AppImage
+        run: |
+          ./scripts/build_appimage.sh "${{ steps.version.outputs.version }}" \
+            "dist/gputop-${{ steps.version.outputs.version }}-linux-x86_64/gputop"
+
+      - name: Verify the checksums
+        run: (cd dist && sha256sum -c ./*.sha256)
+
+      - name: Collect the artifacts
+        run: |
+          mkdir -p upload
+          cp dist/*.tar.gz dist/*.tar.gz.sha256 \
+             dist/*.AppImage dist/*.AppImage.sha256 upload/
+
+      - name: Upload the artifacts to the workflow run
+        uses: actions/upload-artifact@v4
+        with:
+          name: gputop-${{ steps.version.outputs.version }}
+          path: upload/
+          if-no-files-found: error
+
+      - name: Publish the prerelease
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BASE: ${{ steps.version.outputs.base }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          notes="$(printf 'Incremental build of PR #%s.\n\nBase version: %s\n' \
+            "${NUMBER}" "${BASE}")"
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            # The tag already exists from an earlier push of this PR: refresh
+            # the assets in place rather than failing.
+            gh release upload "${TAG}" upload/* --clobber
+            gh release edit "${TAG}" --prerelease --notes "${notes}"
+          else
+            gh release create "${TAG}" upload/* \
+              --title "${TAG}" --notes "${notes}" --prerelease \
+              --target "${GITHUB_SHA}"
+          fi
+          printf 'release: published %s\n' "${TAG}"
+
+      - name: Publish the release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "${TAG}" >/dev/null 2>&1; then
+            gh release upload "${TAG}" upload/* --clobber
+            printf 'release: refreshed the assets of %s\n' "${TAG}"
+            exit 0
+          fi
+          # The tag is created at the merge commit when it does not exist yet.
+          # An existing tag that points elsewhere is left untouched: moving a
+          # published tag would rewrite history.
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            printf 'release: tag %s exists and does not name this commit; skipping\n' "${TAG}" >&2
+            exit 0
+          fi
+          notes="$(printf 'Release %s.\n\nSource: %s\n' \
+            "${VERSION}" "${GITHUB_SHA}")"
+          gh release create "${TAG}" upload/* \
+            --title "${TAG}" --notes "${notes}" --target "${GITHUB_SHA}"
+          printf 'release: published %s\n' "${TAG}"

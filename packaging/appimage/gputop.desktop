@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=gputop
+Comment=btop-style terminal monitor for AMD Radeon GPUs
+Exec=gputop
+Icon=gputop
+Categories=System;Monitor;
+Terminal=true
+Keywords=amd;radeon;gpu;monitor;top;

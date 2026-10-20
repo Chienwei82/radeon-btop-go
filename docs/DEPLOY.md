@@ -109,6 +109,46 @@ machine fact rather than a broken install.
 
 ---
 
+## Automatic releases (GitHub Actions)
+
+Every pull request produces the two artifacts above — the tarball and an
+AppImage — and every merge into `main` publishes a GitHub Release.
+
+| Trigger | Version | Release |
+|---|---|---|
+| push to a PR | `v<base>-pr.<number>` | prerelease, refreshed on every push |
+| merge into `main` | `v<base>` | stable release |
+
+The version is derived from `cmd/gputop/main.go`, never typed by hand, so the
+binary, the man page and the release cannot disagree. The build runs the same
+scripts a developer runs locally (`scripts/release.sh` and
+`scripts/build_appimage.sh`), so CI proves the local procedure instead of
+duplicating it.
+
+### The AppImage
+
+```bash
+# after scripts/release.sh has produced the binary
+./scripts/build_appimage.sh            # writes dist/gputop-<version>-linux-<arch>.AppImage
+```
+
+`appimagetool` is downloaded from a pinned release tag (`1.9.1`) and its
+SHA-256 is verified before use. The tool normally mounts itself, which needs
+FUSE; the script runs it with `APPIMAGE_EXTRACT_AND_RUN=1`, so it unpacks
+itself instead. That needs `squashfs-tools` (`mksquashfs`) on the host.
+
+The AppImage bundles the static binary, a desktop file and an SVG icon. It
+needs no FUSE to run either: the AppRun script is plain `sh`, and the binary
+is static.
+
+### The AppDir source
+
+`packaging/appimage/` holds the hand-written parts of the AppImage:
+`AppRun`, `gputop.desktop` and `gputop.svg`. `scripts/check_packaging.sh`
+verifies them, so they cannot drift from the CLI unnoticed.
+
+---
+
 ## Option 2 — Arch Linux package
 
 The recipe lives in the source tree, at `packaging/arch/PKGBUILD`. Build it

@@ -1,0 +1,6 @@
+#!/bin/sh
+# AppRun — entry point of the gputop AppImage.
+#
+# The AppImage mounts itself read-only at $APPDIR; the binary is static, so
+# there is nothing to resolve against the host.
+exec "$APPDIR/usr/bin/gputop" "$@"
