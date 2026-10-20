@@ -182,6 +182,11 @@ approving review, a linear history, resolved conversations and the
 `gates`, `release` and `artifacts` checks, and force-pushes and deletions
 are refused.
 
+Those three contexts are exactly the jobs that run on every pull request.
+The `publish` job is deliberately **not** required: it is skipped for
+forks, and requiring a check that never reports would block a fork pull
+request forever.
+
 ---
 
 ## Option 2 — Arch Linux package
