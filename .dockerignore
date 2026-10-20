@@ -1,0 +1,15 @@
+# Build context for the container images.
+#
+# The release stage copies the source tree, so keep everything that is not
+# source out of it: VCS metadata, agent memory, the compiled binary and build
+# output. A clean `git archive` therefore builds the same image as a working
+# tree.
+.git
+.github
+.clinerules
+memory-bank
+gputop
+bin/
+dist/
+*.test
+*.out

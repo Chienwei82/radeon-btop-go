@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -31,6 +32,11 @@ const (
 // separate from the device sample because they are about the machine, not one
 // GPU, and because --check must never start radeontop to answer them.
 type SystemOptions struct {
+	// DrmRoot is the sysfs DRM class directory in use, printed by the report.
+	DrmRoot string
+	// DevRoot overrides where render nodes are listed. Empty derives it from
+	// DrmRoot, which is what a normal run does; tests point it at a temp dir.
+	DevRoot          string
 	ProcRoot         string
 	ProcessesScanned bool
 	BlocksEnabled    bool
@@ -42,12 +48,62 @@ type SystemOptions struct {
 }
 
 // GatherSystem builds the full report: device findings plus the machine-level
-// ones, and the loaded amdgpu module version.
+// ones, the loaded amdgpu module version and the kernel paths in use.
 func GatherSystem(snap model.GpuSnapshot, kernelRelease string, opts SystemOptions) Report {
 	report := Gather(snap, kernelRelease)
 	report.Amdgpu = AmdgpuVersion()
+	report.DrmRoot = opts.DrmRoot
+	if report.DrmRoot == "" {
+		report.DrmRoot = DefaultDrmRoot
+	}
+	report.ProcRoot = opts.ProcRoot
+	if report.ProcRoot == "" {
+		report.ProcRoot = DefaultProcRoot
+	}
+	devices := make([]model.AmdgpuDevice, 0, len(snap.Devices))
+	for _, m := range snap.Devices {
+		devices = append(devices, m.Device)
+	}
+	devRoot := opts.DevRoot
+	if devRoot == "" {
+		devRoot = devRootFor(report.DrmRoot)
+	}
+	report.RenderNodes = renderNodes(devices, devRoot)
 	report.System = SystemFindings(snap, kernelVersion(kernelRelease), opts)
 	return report
+}
+
+// devRootFor mirrors the reference: a DRM class directory is swapped for the
+// device tree beside it, and anything else falls back to /dev/dri.
+func devRootFor(drmRoot string) string {
+	if strings.HasPrefix(drmRoot, DefaultDrmRoot) {
+		return strings.Replace(drmRoot, DefaultDrmRoot, DefaultDevRoot, 1)
+	}
+	return DefaultDevRoot
+}
+
+// renderNodes lists the device nodes that belong to the discovered cards.
+// Entries belonging to another driver are not this report's business, and an
+// unreadable directory is an absence rather than an error.
+func renderNodes(devices []model.AmdgpuDevice, devRoot string) []string {
+	entries, err := os.ReadDir(devRoot)
+	if err != nil {
+		return nil
+	}
+	wanted := make(map[string]struct{}, len(devices))
+	for _, device := range devices {
+		if device.Render != nil {
+			wanted[*device.Render] = struct{}{}
+		}
+	}
+	nodes := make([]string, 0, len(wanted))
+	for _, entry := range entries {
+		if _, ok := wanted[entry.Name()]; ok {
+			nodes = append(nodes, entry.Name())
+		}
+	}
+	sort.Strings(nodes)
+	return nodes
 }
 
 // AmdgpuVersion reads the loaded module version from sysfs. Asking the kernel

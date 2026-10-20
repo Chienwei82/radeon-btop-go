@@ -37,12 +37,17 @@ func (r Report) ToMap() map[string]any {
 	for _, warning := range r.Warnings {
 		warnings = append(warnings, warning)
 	}
+	renderNodes := make([]string, 0, len(r.RenderNodes))
+	renderNodes = append(renderNodes, r.RenderNodes...)
 	return map[string]any{
 		"ok": r.OK(),
 		"environment": map[string]any{
-			"kernel": r.Kernel,
-			"amdgpu": nullableString(r.Amdgpu),
-			"go":     runtime.Version(),
+			"kernel":       r.Kernel,
+			"amdgpu":       nullableString(r.Amdgpu),
+			"go":           runtime.Version(),
+			"sysfs":        r.DrmRoot,
+			"procfs":       r.ProcRoot,
+			"render_nodes": renderNodes,
 		},
 		"devices":  devices,
 		"system":   system,

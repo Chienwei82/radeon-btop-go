@@ -231,6 +231,13 @@ disabled, monitor unaffected.
 | Memory | fixed-size rings; no unbounded growth over multi-day runs |
 | Startup | first frame < 500 ms |
 
+**Measured 2026-10-19** (RX 6800, amdgpu 6.19.4, kernel 7.0.0, 24 vCPU):
+sysfs-only tick 3.7–4.8 ms; 588 processes 17–25 ms (median ≈ 20 ms);
+795–798 processes 21–23 ms (median ≈ 22 ms); first output 21 ms; 2.6 % of one
+core at 120x40 with a 1 s interval; peak RSS 15.7 MiB. The ~800-process target
+is **not met** by ≈ 2 ms on this hardware; the scan is syscall-bound and the
+miss is carried in PROGRESS.md rather than restated as a pass.
+
 ---
 
 ## 11. Acceptance criteria (adapted: no Textual Pilot → golden tests)
@@ -255,3 +262,8 @@ disabled, monitor unaffected.
 13. Crossing then clearing a threshold flashes the border then stops cleanly.
 14. Golden UI tests pin all 9 panels at 60/80/120/200 cols and the responsive
     breakpoints; key-model tests cover all 30 bindings.
+15. `scripts/check_packaging.sh` is green: every registered flag and theme is
+    in the man page and the three completions, and the version agrees between
+    the binary, the man page, the PKGBUILD and the release image.
+16. `scripts/release.sh` builds a static binary and a tarball with its
+    checksum from a clean `git archive` using podman only.

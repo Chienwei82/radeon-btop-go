@@ -10,6 +10,7 @@
 # memory-bank/progress.md ("Evolution of project decisions").
 
 ARG GO_VERSION=1.27.2
+ARG VERSION=1.0.0
 
 # ---------------------------------------------------------------------------
 # dev: full toolchain + golangci-lint, used by scripts/podev.sh
@@ -36,12 +37,28 @@ WORKDIR /work
 # ---------------------------------------------------------------------------
 FROM docker.io/library/golang:${GO_VERSION}-bookworm AS build
 
+ARG VERSION
+
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/gputop ./cmd/gputop
+# -buildvcs=false keeps a source archive without .git reproducible; the
+# version is stamped rather than scraped so the binary, the man page and the
+# package recipe can be checked against each other.
+RUN CGO_ENABLED=0 go build -trimpath -buildvcs=false \
+        -ldflags="-s -w -X main.version=${VERSION}" \
+        -o /out/gputop ./cmd/gputop
 
 FROM gcr.io/distroless/static-debian12:nonroot AS release
+
+ARG VERSION
+
+LABEL org.opencontainers.image.title="gputop" \
+      org.opencontainers.image.description="btop-style terminal monitor for AMD Radeon GPUs" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.licenses="GPL-3.0-or-later" \
+      org.opencontainers.image.source="https://github.com/gputop/gputop-go"
+
 COPY --from=build /out/gputop /gputop
 ENTRYPOINT ["/gputop"]
