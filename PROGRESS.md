@@ -337,6 +337,9 @@ runs and the v1 tag.
   (19 flags, 5 themes, version 1.0.0).
 - Release binary: ELF 64-bit, statically linked, stripped,
   **6,561,952 bytes**; `--version` prints `gputop 1.0.0`.
+- Clean-checkout release: `git archive 8e00695` (no `.git`, no `gputop`
+  binary, no `memory-bank`) → `scripts/release.sh` built the same
+  **6,561,952-byte** static binary; tarball **2,637,360 bytes**, checksum OK.
 - Distroless image with `/sys`, `/proc` and `/dev/dri` mounted read-only:
   `--devices` found the RX 6800 (`0000:0c:00.0`, `0x73bf`); `--check` reported
   7/7 device metrics, `renderD128`, and the process table honestly hidden by
@@ -404,7 +407,8 @@ runs and the v1 tag.
 | `-c`/`-i` aliases, `--theme`, `--kind` validation | measured | `TestShortConfigAndIntervalAliases`, `TestThemeFlagValidatesNames`, `TestKindFlagValidatesNames`, 2026-10-19 |
 | Man page + 3 completions match the CLI | measured | `scripts/check_packaging.sh`: 19 flags, 5 themes, version 1.0.0, 2026-10-19 |
 | Release binary is static and stripped | measured | `file`/`readelf`: ELF64, statically linked, stripped, 6,561,952 bytes, 2026-10-19 |
-| Release tarball + checksum | measured | `scripts/release.sh`: `dist/gputop-1.0.0-linux-x86_64.tar.gz`, 2,637,366 bytes, `sha256sum -c` OK, 2026-10-19 |
+| Release tarball + checksum | measured | `scripts/release.sh`: `dist/gputop-1.0.0-linux-x86_64.tar.gz`, 2,637,360 bytes, `sha256sum -c` OK, 2026-10-19 |
+| Release builds from a clean `git archive` | measured | `git archive 8e00695` → `scripts/release.sh`; same 6,561,952-byte static binary, checksum OK, 2026-10-19 |
 | Distroless hardware run with read-only kernel mounts | measured | `--devices`/`--check`/`--dump` with `/sys`, `/proc`, `/dev/dri` `:ro`; RX 6800, 7/7 metrics, 2026-10-19 |
 | Startup, CPU and RSS of the interface | measured | 120x40 pty: first output 21 ms, 2.6 % of one core over 10 s, 15.7 MiB peak RSS, 2026-10-19 |
 | `/proc` scan at ~800 processes | measured | 795–798 processes: 21–23 ms (median ≈ 22 ms); **SPEC target not met**, 2026-10-19 |
