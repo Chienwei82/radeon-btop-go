@@ -1,16 +1,20 @@
 # Incremental releases: every pull request produces a .tar.gz and an .AppImage,
 # and every merge into main publishes a tagged release.
 #
-# The version is derived, never typed: a PR gets v<base>-pr.<number> as a
-# prerelease that is refreshed on every push, and a merge into main publishes
-# v<base> as a stable release. The artifacts themselves come from the same
-# scripts the developer runs locally (scripts/release.sh and
-# scripts/build_appimage.sh), so CI proves the local procedure rather than
+# The version is derived, never typed: a pull request gets v<base>-pr.<number>
+# as a prerelease that is refreshed on every push, and a merge into main
+# publishes v<base> as a stable release. The artifacts come from the same
+# scripts a developer runs locally (scripts/release.sh and
+# scripts/build_appimage.sh), so CI proves the local procedure instead of
 # duplicating it.
 #
-# The AppImage is built with appimagetool run through
-# APPIMAGE_EXTRACT_AND_RUN=1: GitHub's runners have no FUSE, and the tool
-# unpacks itself instead of mounting when that variable is set.
+# There is a single job on purpose. Building and publishing were two jobs
+# handing files over through the artifact storage, which the fork case was the
+# only reason for - and a step-level `if` covers that inside one job, with no
+# outputs to thread and no second checkout.
+#
+# The runners have no FUSE, so appimagetool is run with
+# APPIMAGE_EXTRACT_AND_RUN=1; see scripts/build_appimage.sh.
 name: release
 
 on:
@@ -27,19 +31,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  artifacts:
-    # This job only reads the repository, so it runs on fork pull requests too:
-    # a contributor gets the artifacts without needing write access.
+  release:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    permissions:
-      contents: read
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      base: ${{ steps.version.outputs.base }}
-      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The publish steps read the existing tags to decide whether a
+          # release for this version is already published.
+          fetch-depth: 0
 
       - name: Install the packaging tools
         # appimagetool shells out to mksquashfs, and validates the desktop file
@@ -90,48 +90,32 @@ jobs:
       - name: Verify the checksums
         run: (cd dist && sha256sum -c ./*.sha256)
 
-      - name: Collect the artifacts
-        run: |
-          mkdir -p upload
-          cp dist/*.tar.gz dist/*.tar.gz.sha256 \
-             dist/gputop-*.AppImage dist/gputop-*.AppImage.sha256 upload/
-
-      - name: Upload the artifacts to the workflow run
+      - name: Upload the artifacts to the run
+        # Explicit paths rather than dist/ as a whole: dist/ also holds the
+        # staging tree and dist/tools, and an appimagetool named *.AppImage in
+        # there would ship to users as if it were gputop.
         uses: actions/upload-artifact@v4
         with:
           name: gputop-${{ steps.version.outputs.version }}
-          path: upload/
+          path: |
+            dist/*.tar.gz
+            dist/*.tar.gz.sha256
+            dist/gputop-*.AppImage
+            dist/gputop-*.AppImage.sha256
           if-no-files-found: error
 
-  publish:
-    # A fork cannot write to this repository's releases, so the job is skipped
-    # there rather than failing on a permission the pull request cannot grant.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    needs: artifacts
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # The tags matter: the release reads them to decide whether a release
-          # already exists for the version it is about to publish.
-          fetch-depth: 0
-
-      - name: Download the artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: gputop-${{ needs.artifacts.outputs.version }}
-          path: upload
-
       - name: Publish the prerelease
-        if: github.event_name == 'pull_request'
+        # A fork cannot write to this repository's releases, so there the run
+        # still builds and uploads the artifacts and only the publish is
+        # skipped - which is why this is a step condition, not a job condition:
+        # a skipped job would never satisfy a required status check.
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.artifacts.outputs.tag }}
-          VERSION: ${{ needs.artifacts.outputs.version }}
-          BASE: ${{ needs.artifacts.outputs.base }}
+          TAG: ${{ steps.version.outputs.tag }}
+          BASE: ${{ steps.version.outputs.base }}
           NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
@@ -147,7 +131,9 @@ jobs:
           # merge commit GitHub builds for the pull request: that commit only
           # exists once the pull request is merged, and an artifact tagged with
           # it could not be reproduced.
-          gh release create "${TAG}" upload/* \
+          gh release create "${TAG}" \
+            dist/*.tar.gz dist/*.tar.gz.sha256 \
+            dist/gputop-*.AppImage dist/gputop-*.AppImage.sha256 \
             --title "${TAG}" --notes "${notes}" --prerelease \
             --target "${HEAD_SHA}"
           printf 'release: published %s\n' "${TAG}"
@@ -156,8 +142,8 @@ jobs:
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.artifacts.outputs.tag }}
-          VERSION: ${{ needs.artifacts.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           if gh release view "${TAG}" >/dev/null 2>&1; then
             # The release exists and its tag is already published. Its assets
@@ -174,6 +160,9 @@ jobs:
           fi
           notes="$(printf 'Release %s.\n\nSource: %s\n' \
             "${VERSION}" "${GITHUB_SHA}")"
-          gh release create "${TAG}" upload/* \
+          gh release create "${TAG}" \
+            dist/*.tar.gz dist/*.tar.gz.sha256 \
+            dist/gputop-*.AppImage dist/gputop-*.AppImage.sha256 \
             --title "${TAG}" --notes "${notes}" --target "${GITHUB_SHA}"
           printf 'release: published %s\n' "${TAG}"
+

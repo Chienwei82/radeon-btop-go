@@ -66,17 +66,3 @@ jobs:
         run: |
           ./scripts/podev.sh test -count=1 -v -run TestDumpParityWithReference \
             ./internal/cli/
-
-  release:
-    # The exit criterion is "builds from a clean checkout with podman only",
-    # so CI builds the artifact the way a release does and runs it.
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build the release artifact
-        run: ./scripts/release.sh
-
-      - name: Verify the checksum
-        run: (cd dist && sha256sum -c ./*.sha256)
