@@ -541,7 +541,76 @@ stays immutable.
 
 ---
 
-## Notes for future milestones
+## Incremental releases: AppImage artifacts, PR prereleases, protected `main` (2026-10-19)
+
+**Scope:** post-v1 delivery work. Not a phase, and it does not move `v1.0.0`.
+Branch `feature/pr-releases`, PR #1.
+
+**What was built**
+
+1. **An AppImage artifact, reproducible.** `scripts/build_appimage.sh` assembles
+   an AppDir from `packaging/appimage/` (`AppRun`, `gputop.desktop`, `gputop.svg`)
+   plus the static binary from `release.sh`, and packages it with `appimagetool`
+   **1.9.1** (SHA-256 pinned, run with `APPIMAGE_EXTRACT_AND_RUN=1` because the
+   runners have no FUSE).
+2. **Reproducibility required pinning three inputs, not one.** Two builds of an
+   identical AppDir differed because `appimagetool` fetches the type2 runtime
+   from a `continuous` release *and* `mksquashfs` records each file's mtime.
+   Fixed with a pinned `--runtime-file` (release `20251108`, checksum verified
+   for all four architectures) and `-all-time` set to the commit date. Two
+   consecutive builds of `v1.1.0` are **byte-identical** at
+   `713a69b030d78bd4de94d265c5d6f574999bc6cc65c70b4e6a61f554db494619` — the hash
+   moves with the source, the property does not.
+3. **Two jobs, split by permission.** `artifacts` compiles and uploads (read-only,
+   so it also runs for forks); `publish` creates the release (`contents: write`,
+   skipped for forks). Build and publish are different permissions.
+4. **A tag and its assets always describe the same tree.** The prerelease tag
+   names `github.event.pull_request.head.sha` — not the synthetic merge commit,
+   which only exists after the merge. Re-pushing deletes and rebuilds the
+   prerelease rather than handing it assets that contradict its tag; a
+   stable tag that already names a commit is never moved.
+5. **`main` requires a pull request** with one dismissing review, strict status
+   checks (`gates`, `release`, `artifacts`), linear history and no force-push.
+
+**Decisions recorded, not changed**
+
+- **`v1.0.0` stays the historical tag and is not published by CI.** It names
+  `bc7c5f3`, an ancestor of `main`, and it exists only in the local clone — the
+  remote has no such tag. Rather than push it or let CI reuse the name, the base
+  version in `cmd/gputop/main.go` was bumped to **1.1.0**. The next merge into
+  `main` therefore publishes `v1.1.0`, and `v1.0.0` remains reserved for what it
+  already labels. The four versioned files moved together (`main.go`, man page,
+  `PKGBUILD`, `Containerfile`), which is exactly what `check_packaging.sh`
+  checks.
+- **The stable path fails loudly rather than guessing.** If `v<base>` exists
+  without a release, it points somewhere else; the workflow exits 1 instead of
+  moving it. Releasing requires a version bump, not a rewrite of history.
+- **`docs/DEPLOY.md` no longer says the repository has no published remote** —
+  it did, and the releases section supersedes it.
+
+**Verified**
+
+- `gofmt -l .` empty, `go vet` clean, `golangci-lint` **0 issues**,
+  `go test ./...` green (11 packages), `./scripts/check_packaging.sh` clean
+  reporting `(version 1.1.0)`.
+- `bash -n` on all four scripts; both workflows parse as YAML.
+- Local end-to-end: `release.sh` produced
+  `dist/gputop-1.1.0-linux-x86_64.tar.gz` (2,695,322 bytes) and
+  `build_appimage.sh` the AppImage; both `sha256sum -c` pass and both report
+  `gputop 1.1.0`.
+- PR #1 checks all green: `artifacts`, `gates`, `publish`, `release`.
+  Release `v1.0.0-pr.1` is a prerelease, is tagged at the PR head `6855f20`
+  (verified against `refs/tags`), and carries four assets whose checksums
+  match.
+
+**Next**
+
+- Merge PR #1 and confirm `v1.1.0` is published as a stable release with
+  `artifacts` and `gates` still required on `main`.
+- Confirm whether the local `v1.0.0` tag should be pushed to the remote at
+  some point; it is currently local-only.
+
+---
 
 - Keep editor payloads < 6000 chars per call; use heredocs/`cat >>` for docs.
 - Long podman builds: `nohup ... &` + poll the log file; never block 30 s+.

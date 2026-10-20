@@ -10,7 +10,7 @@
 # memory-bank/progress.md ("Evolution of project decisions").
 
 ARG GO_VERSION=1.27.2
-ARG VERSION=1.0.0
+ARG VERSION=1.1.0
 
 # ---------------------------------------------------------------------------
 # dev: full toolchain + golangci-lint, used by scripts/podev.sh

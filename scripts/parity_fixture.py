@@ -135,7 +135,10 @@ def build_tree(root: Path, reference: Path) -> Path:
     # Dangling on purpose: only the link text is read, and its last segment is
     # what identifies the bound driver.
     relink(device_dir / "driver", "../../../../bus/pci/drivers/amdgpu")
-    (device_dir / "drm" / "renderD128").mkdir(parents=True, exist_ok=True)
+    # Git does not track empty directories, so a marker file keeps renderD128
+    # present in a clean clone. The reference and the Go reader only look at
+    # the entry names under drm/, so the marker never changes the outcome.
+    write(device_dir / "drm" / "renderD128" / ".gitkeep", "")
 
     # The v1.3 table, with distinctive but non-sentinel values so every field
     # is exercised and none decodes as N/A.

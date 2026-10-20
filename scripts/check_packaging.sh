@@ -18,6 +18,9 @@ ZSH_COMP="${REPO_ROOT}/packaging/completions/gputop.zsh"
 FISH_COMP="${REPO_ROOT}/packaging/completions/gputop.fish"
 PKGBUILD="${REPO_ROOT}/packaging/arch/PKGBUILD"
 CONTAINERFILE="${REPO_ROOT}/Containerfile"
+APPDESKTOP="${REPO_ROOT}/packaging/appimage/gputop.desktop"
+APPICON="${REPO_ROOT}/packaging/appimage/gputop.svg"
+APPRUN="${REPO_ROOT}/packaging/appimage/AppRun"
 
 fail=0
 problems=0
@@ -83,6 +86,20 @@ for pair in "man:${man_version}" "PKGBUILD:${package_version}" "Containerfile:${
         problem "version drift: ${name} says ${value:-<empty>}, source says ${source_version}"
     fi
 done
+
+# The AppImage is a third shipped artifact: its desktop file, icon and AppRun
+# are hand-written too, so they can drift from the CLI the same way.
+for f in "${APPDESKTOP}" "${APPICON}" "${APPRUN}"; do
+    [ -f "${f}" ] || problem "missing AppImage source ${f}"
+done
+if [ -f "${APPDESKTOP}" ]; then
+    grep -Fq "Exec=gputop" "${APPDESKTOP}" || problem "AppImage desktop file does not exec gputop"
+    grep -Fq "Icon=gputop" "${APPDESKTOP}" || problem "AppImage desktop file names no icon"
+    grep -Fq "Terminal=true" "${APPDESKTOP}" || problem "AppImage desktop file does not ask for a terminal"
+fi
+if [ -f "${APPRUN}" ]; then
+    grep -Fq 'usr/bin/gputop' "${APPRUN}" || problem "AppRun does not exec the packaged binary"
+fi
 
 # Phase 0 files were placeholders; a release must not ship one.
 if grep -Rqi 'placeholder' "${REPO_ROOT}/packaging/man" "${REPO_ROOT}/packaging/completions"; then
