@@ -38,8 +38,20 @@ gputop-go ships as a **single static binary**. No interpreter, no runtime.
 
 ### From a release
 
-Download `gputop` for your architecture, make it executable, put it on
-`$PATH`. (Release process: Phase 4.)
+Download `gputop-<version>-linux-<arch>.tar.gz` and its `.sha256`, verify the
+checksum, extract it and put `gputop` on `$PATH`. The archive also carries the
+man page, the three completions, the example configuration and the licences.
+
+The same artifact is built from source with podman only:
+
+```bash
+./scripts/release.sh
+```
+
+It compiles inside the Containerfile's `release` stage, copies the static
+binary out of the distroless image, and writes
+`dist/gputop-<version>-linux-<arch>.tar.gz` plus a `.sha256`. The host needs
+no Go toolchain and nothing is installed outside `dist/`.
 
 ### Arch Linux
 
@@ -51,7 +63,9 @@ cd packaging/arch
 makepkg -si          # -s installs build dependencies, -i installs the result
 ```
 
-It installs the `gputop(1)` man page and the bash, zsh and fish completions,
+It installs the `gputop(1)` man page, the bash, zsh and fish completions and
+the licence files. The recipe builds through podman, so `podman` is the build
+dependency — not a Go toolchain.
 
 ---
 
@@ -129,18 +143,21 @@ scripts can distinguish "no hardware" from "gputop is broken".
 `[--blocks | --no-blocks] [--log PATH] [--check [--json]] [--version]`
 
 - `-c/--config PATH` — config file instead of the default search locations.
-- `-i/--interval SECONDS` — sampling interval, overriding
-  `general.interval_ms`.
-- `--drm-root/--proc-root` — override sysfs DRM dir / procfs mount (testing).
+- `-i/--interval SECONDS` — sampling interval, overriding `interval_ms`.
+- `--drm-root/--proc-root` — override sysfs DRM dir / procfs mount (testing
+  and containers).
 - `--dump` — one JSON snapshot to stdout and exit. `--pretty` indents it.
 - `--devices` — list discovered GPUs as JSON and exit.
-- `--kind` — force every device to integrated/discrete.
-- `--theme/--no-color` — palette control (also in config, also `m`).
+- `--kind auto|igpu|dgpu` — force every device to integrated/discrete.
+- `--theme NAME/--no-color` — palette control (also `ui.theme` /
+  `ui.no_color`, also `m`). Themes: default, dracula, gruvbox, monochrome,
+  radeon.
 - `--no-processes` — skip the `/proc` scan (the expensive part of a sample).
 - `--blocks/--no-blocks` — force the per-block panel on/off for one run.
-- `--log PATH` — record the session (`.csv`/`.json` by suffix, `+ .zst`
-  for zstd). Appended, flushed per record.
+- `--log PATH` — record the session (`.csv`, `.json`, `.jsonl`; a trailing
+  `.zst`/`.zstd` compresses). Appended, flushed per record.
 - `--check [--json]` — the diagnostic report above.
+- `--version` — print the version and exit.
 
 and offers `radeontop` as an optional dependency for the per-block panel.
 
@@ -225,14 +242,24 @@ writing does not trip it.
 
 ## Cost: CPU and memory
 
-Targets (to be measured for this build in Phase 4 and recorded here):
+Measured on 2026-10-19 on an AMD Radeon RX 6800 (`amdgpu` 6.19.4, kernel
+7.0.0, 24 vCPU) with the Go 1.27.2 release binary:
 
 | | |
 |---|---|
-| Sampler tick, one device | small sysfs reads only; no TUI framework in the path |
-| `/proc` scan | raw syscalls, no per-fd heap churn; well under 20 ms for ~800 processes |
-| Running interface | compiled renderer; bounded history; flat memory over multi-day runs |
-| Peak RSS | target: well below the Python build's ~78 MiB |
+| Sampler tick, one device, sysfs only (`--no-processes`) | 3.7–4.8 ms |
+| Sampler tick, 588 processes | 17–25 ms, median ≈ 20 ms |
+| Sampler tick, 795–798 processes | 21–23 ms, median ≈ 22 ms |
+| Start to first output, 120x40 pty | 21 ms |
+| Interface CPU, 120x40, 1 s interval | 2.6 % of one core over 10 s |
+| Peak RSS, 120x40 | 15.7 MiB |
+
+The `/proc` scan dominates and is syscall-bound: one directory listing plus one
+`readlink` per open descriptor. At ~800 processes the measured tick is ≈ 22 ms,
+narrowly above the ~20 ms design target in SPEC §10; the sysfs-only floor is
+under 5 ms. That miss is recorded as measured in PROGRESS.md rather than rounded
+away. The 15.7 MiB working set is flat because history is a fixed-size ring;
+a 10-second run shows the footprint, not multi-day flatness.
 
 ---
 
@@ -247,6 +274,8 @@ The host needs nothing but podman. All Go work runs in the container:
 ./scripts/podev.sh lint    # golangci-lint run ./... (set pinned in .golangci.yml)
 ./scripts/podev.sh fmt     # gofmt -l . (empty output == clean)
 ./scripts/podev.sh shell   # interactive shell in the dev image
+./scripts/check_packaging.sh  # man/completions/version agree with the CLI
+./scripts/release.sh       # static binary + tarball + sha256 under dist/
 ```
 
 The headless data path is covered by a **parity gate**: `internal/cli/parity_test.go`
@@ -269,4 +298,7 @@ assumed.
 
 ## Licence
 
-GPL-3.0-or-later.
+GPL-3.0-or-later; the full text is in [LICENSE](LICENSE). This is a Go
+reimplementation of the MIT-licensed Python project
+[gputop](https://github.com/Chienwei82/gputop); the upstream copyright and
+licence are reproduced in [NOTICE](NOTICE).

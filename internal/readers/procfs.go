@@ -232,7 +232,7 @@ func (c *ProcessCollector) Collect(nowNs model.Nanoseconds) ([]model.GpuProcess,
 // (drm-pdev, drm-client-id).
 func (c *ProcessCollector) scanClients() (map[clientKey]*clientAcc, int, int) {
 	clients := map[clientKey]*clientAcc{}
-	entries, err := os.ReadDir(c.procRoot)
+	entries, err := readDirUnsorted(c.procRoot)
 	if err != nil {
 		return clients, 0, 0
 	}
@@ -246,7 +246,7 @@ func (c *ProcessCollector) scanClients() (map[clientKey]*clientAcc, int, int) {
 		if err != nil {
 			continue
 		}
-		pidDir := filepath.Join(c.procRoot, entry.Name())
+		pidDir := c.procRoot + "/" + entry.Name()
 		records, ok := readPID(pidDir)
 		if !ok {
 			// Could not inspect this process at all: another user's
@@ -260,6 +260,19 @@ func (c *ProcessCollector) scanClients() (map[clientKey]*clientAcc, int, int) {
 		}
 	}
 	return clients, total, visible
+}
+
+// readDirUnsorted lists a directory without the alphabetical sort os.ReadDir
+// applies. Nothing in the scan depends on order (PIDs are parsed and clients
+// are sorted later), and sorting every /proc/<pid>/fd on every tick is pure
+// cost. The caller closes nothing: ReadDir consumes and closes the handle.
+func readDirUnsorted(dir string) ([]os.DirEntry, error) {
+	handle, err := os.Open(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = handle.Close() }()
+	return handle.ReadDir(-1)
 }
 
 // isDigits reports whether a directory name is a PID.
@@ -281,7 +294,7 @@ func isDigits(s string) bool {
 // between "hidden" and "holds no GPU descriptor" is what the visible count is
 // made of.
 func readPID(pidDir string) ([]*FdinfoRecord, bool) {
-	fdEntries, err := os.ReadDir(filepath.Join(pidDir, "fd"))
+	fdEntries, err := readDirUnsorted(pidDir + "/fd")
 	if err != nil {
 		return nil, false
 	}
@@ -289,7 +302,7 @@ func readPID(pidDir string) ([]*FdinfoRecord, bool) {
 	for _, fd := range fdEntries {
 		// The descriptor's target is what identifies a GPU client, so every
 		// open descriptor costs one readlink.
-		target, err := os.Readlink(filepath.Join(pidDir, "fd", fd.Name()))
+		target, err := os.Readlink(pidDir + "/fd/" + fd.Name())
 		if err != nil {
 			continue
 		}
@@ -298,7 +311,7 @@ func readPID(pidDir string) ([]*FdinfoRecord, bool) {
 		}
 		// An ENOENT here means the same thing as a missing fdinfo entry, so no
 		// extra listing of the fdinfo directory is needed.
-		text, ok := ReadText(filepath.Join(pidDir, "fdinfo", fd.Name()), TableLimit)
+		text, ok := ReadText(pidDir+"/fdinfo/"+fd.Name(), TableLimit)
 		if !ok {
 			continue
 		}

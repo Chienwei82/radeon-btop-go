@@ -117,11 +117,29 @@ func (d DeviceReport) Missing() []Finding {
 	return out
 }
 
+// The kernel trees the report describes when the caller did not override
+// them. They are named here rather than imported from the sampler so this
+// package keeps its single dependency on model.
+const (
+	DefaultDrmRoot  = "/sys/class/drm"
+	DefaultProcRoot = "/proc"
+	DefaultDevRoot  = "/dev/dri"
+)
+
 // Report is the whole --check answer.
 type Report struct {
 	Kernel  string
 	Amdgpu  string
 	Devices []DeviceReport
+	// DrmRoot and ProcRoot are the trees this report read. A container run
+	// sees the host's /sys read-only and a redirected procfs in tests, so
+	// naming the paths is what makes the report reproducible.
+	DrmRoot  string
+	ProcRoot string
+	// RenderNodes are the /dev/dri entries for the discovered cards, sorted.
+	// A card with no node can still be monitored from sysfs; its absence is
+	// also why the process table is empty, which is worth saying.
+	RenderNodes []string
 	// System are the findings about the machine rather than one GPU: the
 	// process table and the optional per-block panel.
 	System   []Finding
@@ -400,7 +418,9 @@ var specs = []spec{
 // Gather builds the report from a real sample. The kernel release is a
 // parameter so a test can pin it; the caller passes the host's.
 func Gather(snap model.GpuSnapshot, kernelRelease string) Report {
-	report := Report{Kernel: kernelRelease}
+	report := Report{
+		Kernel: kernelRelease, DrmRoot: DefaultDrmRoot, ProcRoot: DefaultProcRoot,
+	}
 	kernel := kernelVersion(kernelRelease)
 	for _, m := range snap.Devices {
 		dev := DeviceReport{Device: m.Device, MetricsABI: metricABI(m)}
@@ -451,6 +471,13 @@ func (r Report) Render() string {
 	lines = append(lines, "kernel           "+orNotLoaded(r.Kernel))
 	lines = append(lines, "amdgpu           "+orNotLoaded(r.Amdgpu))
 	lines = append(lines, "go               "+runtime.Version())
+	lines = append(lines, "sysfs            "+orNotLoaded(r.DrmRoot))
+	lines = append(lines, "procfs           "+orNotLoaded(r.ProcRoot))
+	if len(r.RenderNodes) > 0 {
+		lines = append(lines, "render nodes     "+strings.Join(r.RenderNodes, ", "))
+	} else {
+		lines = append(lines, "render nodes     none found (no /dev/dri entry for these cards)")
+	}
 	lines = append(lines, "")
 	if len(r.System) > 0 {
 		lines = append(lines, renderTable(r.System)...)

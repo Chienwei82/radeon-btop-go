@@ -20,7 +20,11 @@ import (
 	"github.com/gputop/gputop-go/internal/sessionlog"
 )
 
-const version = "0.1.0"
+// version is a variable, not a constant, so the release stage can stamp it
+// with -ldflags "-X main.version=...". The default is the version this tree
+// documents; scripts/check_packaging.sh keeps the man page and PKGBUILD in
+// step with it.
+var version = "1.0.0"
 
 func main() {
 	status, err := runWith(os.Args[1:], os.Stdout)
@@ -29,13 +33,6 @@ func main() {
 		os.Exit(1)
 	}
 	os.Exit(status)
-}
-
-// run keeps the single-error signature the tests use; the process exit status
-// is handled by main so a command can return "no device" without an error.
-func run(args []string) error {
-	_, err := runWith(args, os.Stdout)
-	return err
 }
 
 // runWith parses the command line and dispatches to the headless modes. It
@@ -47,12 +44,17 @@ func runWith(args []string, stdout io.Writer) (int, error) {
 	dump := fs.Bool("dump", false, "write one JSON snapshot to stdout and exit")
 	devices := fs.Bool("devices", false, "list discovered GPUs as JSON and exit")
 	pretty := fs.Bool("pretty", false, "indent --dump output for human reading")
-	configPath := fs.String("config", "", "configuration file to load instead of the default locations")
-	interval := fs.Float64("interval", 0, "sampling interval in seconds, overriding general.interval_ms")
+	configPath := ""
+	fs.StringVar(&configPath, "config", "", "configuration file to load instead of the default locations")
+	fs.StringVar(&configPath, "c", "", "shorthand for --config")
+	interval := 0.0
+	fs.Float64Var(&interval, "interval", 0, "sampling interval in seconds, overriding general.interval_ms")
+	fs.Float64Var(&interval, "i", 0, "shorthand for --interval")
 	drmRoot := fs.String("drm-root", "", "sysfs DRM class directory (default /sys/class/drm)")
 	procRoot := fs.String("proc-root", "", "procfs mount point (default /proc)")
 	noProcesses := fs.Bool("no-processes", false, "skip the /proc scan, the most expensive part of a sample")
 	kind := fs.String("kind", "", "force every device to be classified as igpu or dgpu")
+	theme := fs.String("theme", "", "colour theme: default, dracula, gruvbox, monochrome or radeon")
 	blocks := fs.Bool("blocks", false, "force the per-block panel on, overriding blocks.enabled")
 	noBlocks := fs.Bool("no-blocks", false, "never start radeontop, even when it is installed")
 	checkMode := fs.Bool("check", false, "report what this machine can show and why anything is missing")
@@ -65,6 +67,13 @@ func runWith(args []string, stdout io.Writer) (int, error) {
 	if *blocks && *noBlocks {
 		return 1, fmt.Errorf("--blocks and --no-blocks are mutually exclusive")
 	}
+	if *theme != "" && !model.ValidTheme(*theme) {
+		return 1, fmt.Errorf("--theme %q is not one of: %s",
+			*theme, strings.Join(model.ThemeNames, ", "))
+	}
+	if *kind != "" && *kind != "auto" && *kind != "igpu" && *kind != "dgpu" {
+		return 1, fmt.Errorf("--kind %q is not auto, igpu or dgpu", *kind)
+	}
 	if *logPath != "" && (*checkMode || *dump || *devices) {
 		return 1, fmt.Errorf("--log records the interface; it cannot be combined with --check, --dump or --devices")
 	}
@@ -75,9 +84,12 @@ func runWith(args []string, stdout io.Writer) (int, error) {
 		return 0, nil
 	}
 
-	cfg := config.Load(*configPath)
+	cfg := config.Load(configPath)
 	if *noColor {
 		cfg.UI.NoColor = true
+	}
+	if *theme != "" {
+		cfg.UI.Theme = *theme
 	}
 	// The flag wins over the config; --no-blocks is the only way to override a
 	// config that turned the panel on.
@@ -110,8 +122,8 @@ func runWith(args []string, stdout io.Writer) (int, error) {
 			NameOverrides:    cfg.Gpu.Names,
 		},
 	}
-	if *interval > 0 {
-		in.Sampler.IntervalS = *interval
+	if interval > 0 {
+		in.Sampler.IntervalS = interval
 	}
 	if k := strings.TrimSpace(*kind); k != "" && k != "auto" {
 		deviceKind := model.DeviceKind(k)

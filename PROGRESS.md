@@ -5,6 +5,12 @@ was built, what was *verified* (and on what), what was assumed, and what was
 left undone. The verification ledger below separates measured properties from
 designed-for ones. Phase numbers refer to `memory-bank/phases.md`.
 
+**Status 2026-10-19:** Phases 0–4 complete; **v1.0.0 tagged**. The release
+binary is static, 6,561,952 bytes, and was verified on an RX 6800 (host and
+distroless with read-only `/sys`/`/proc`). The one measured target miss is the
+`/proc` scan at ~800 processes (≈ 22 ms vs "well under 20 ms"), recorded below
+rather than rounded away.
+
 ---
 
 ## Milestone 0 — toolchain and foundations
@@ -273,10 +279,93 @@ supervised child (`407648a`) and the optional panels (`5a58f3b`).
   that width), so the rule is pinned by the helper's table; a future golden at
   a width with a tie is the belt-and-braces check.
 - zstd append after a crash may still lose the earlier frame (inherited).
-- `--check` does not list `/dev/dri` render nodes, which the reference does.
-  Recorded as a deliberate gap rather than an oversight.
+- `--check` did not list `/dev/dri` render nodes, which the reference does.
+  Closed in Milestone 4 (`render nodes` in the text and JSON report).
 - The alert flash is exercised as pure state (`flashMsg`) plus the colour
   function; the visual cadence on a real terminal is a manual observation.
+
+---
+
+## Milestone 4 — packaging and closure (`v1.0.0`)
+
+**Scope:** Phase 4. A shippable release built with podman only, the last
+parity gaps carried out of Phase 3, a complete verification ledger, hardware
+runs and the v1 tag.
+
+**Delivered**
+
+- `internal/check` — `/dev/dri` render nodes are now part of the report, both
+  as text (`sysfs`, `procfs`, `render nodes`) and in the JSON `environment`
+  (`sysfs`, `procfs`, `render_nodes`). The dev root is derived from the DRM
+  root exactly as the reference does; an unreadable directory is an absence.
+- `cmd/gputop` — `-c`/`--config` and `-i`/`--interval` are real aliases,
+  `--theme` validates against the five model themes and applies to the loaded
+  config, and `--kind` rejects anything outside `auto|igpu|dgpu` (argparse
+  parity). `version` is a variable stamped by the release stage with
+  `-X main.version`. The test-only `run` wrapper was removed.
+- `internal/readers/procfs.go` — the scan lists directories unsorted: nothing
+  depends on order and sorting every `/proc/<pid>/fd` on every tick is pure
+  cost. Behaviour is unchanged; the readers suite pins it.
+- `packaging/man/gputop.1` — rewritten for the shipped feature set: every
+  flag, the 30 key bindings, files, environment, exit status, examples and
+  licence.
+- `packaging/completions/{gputop.bash,gputop.zsh,gputop.fish}` — real
+  completions with theme/kind values and file/directory completion, replacing
+  the Phase 0 placeholders.
+- `packaging/arch/PKGBUILD` — builds through podman (`makedepends=('podman')`),
+  runs `check()`, and installs the binary, man page, three completions and
+  licences.
+- `LICENSE` (GPL-3.0-or-later) and `NOTICE` (upstream MIT copyright and text).
+- `Containerfile` — the release stage stamps the version, disables VCS
+  stamping, strips the binary and carries OCI labels; `.dockerignore` limits
+  the context to source.
+- `scripts/check_packaging.sh` — reads flags/themes/version from the source
+  and fails on drift in the man page, completions, `PKGBUILD` or
+  `Containerfile`; it also parses the bash completion and the PKGBUILD.
+- `scripts/release.sh` — builds the release image, copies the static binary
+  out of distroless, verifies the version, writes a deterministic tarball and
+  `.sha256` under `dist/`.
+- CI — a packaging step in the gates job and a `release` job that builds the
+  artifact and verifies its checksum.
+- Living docs — README install/cost/licence, SPEC §10 measured numbers and
+  acceptance 15–16, DESIGN §7 packaging/release and the resolved risks.
+
+**Verified (2026-10-19, container + RX 6800 host)**
+
+- Gates: `gofmt -l .` empty, `go vet ./...` clean, `golangci-lint run ./...`
+  **0 issues**, `go test ./...` green (10 packages), packaging check green
+  (19 flags, 5 themes, version 1.0.0).
+- Release binary: ELF 64-bit, statically linked, stripped,
+  **6,561,952 bytes**; `--version` prints `gputop 1.0.0`.
+- Clean-checkout release: `git archive 8e00695` (no `.git`, no `gputop`
+  binary, no `memory-bank`) → `scripts/release.sh` built the same
+  **6,561,952-byte** static binary; tarball **2,637,360 bytes**, checksum OK.
+- Distroless image with `/sys`, `/proc` and `/dev/dri` mounted read-only:
+  `--devices` found the RX 6800 (`0000:0c:00.0`, `0x73bf`); `--check` reported
+  7/7 device metrics, `renderD128`, and the process table honestly hidden by
+  permissions (the container runs as nonroot); `--dump --pretty` produced
+  valid JSON.
+- Host: `--devices`, `--check`, `--check --json` (environment carries
+  `sysfs`, `procfs`, `render_nodes`), `--theme solarized` exits 1 with the
+  allowed names.
+- Performance: sysfs-only tick 3.7–4.8 ms; 588 processes 17–25 ms (median
+  ≈ 20 ms); 795–798 processes 21–23 ms (median ≈ 22 ms); first output 21 ms;
+  2.6 % of one core at 120x40 over 10 s; peak RSS **15.7 MiB**.
+- Quitting the pty run wrote `$GPUTOP_STATE` with mode 0600.
+
+**Assumed / known gaps**
+
+- **The SPEC §10 `/proc` target is not met**: ≈ 22 ms at ~800 processes versus
+  "well under 20 ms". The scan is syscall-bound; the measured ranges are in
+  README/SPEC rather than rounded into a pass.
+- The module path (`github.com/gputop/gputop-go`) and the remote are still
+  owner decisions; the PKGBUILD URL follows the module path placeholder.
+- zsh and fish are not installed on this host, so their completion syntax
+  checks were skipped locally (bash and the PKGBUILD were parsed); the CI
+  runners may have them.
+- CI's release job is new and has not run on GitHub (no remote configured).
+- The 100x40 golden still has no exact rounding tie, and zstd append after a
+  crash may lose the earlier frame (both inherited and recorded).
 
 ---
 
@@ -314,6 +403,17 @@ supervised child (`407648a`) and the optional panels (`5a58f3b`).
 | Signalling rules and confirmation | measured | `internal/control` refusal table + delivered-signal spy; `TestAppKill*`, 2026-10-19 |
 | Event loop, overlays, log throttling | measured | `internal/ui/app_test.go` (snapshot, filter, help, kill, no-color, devices, quit/save), 2026-10-19 |
 | `--check` text + JSON on real hardware | measured | host RX 6800: 7/7 device metrics, process table, JSON keys, 2026-10-19 |
+| `--check` lists `/dev/dri` render nodes | measured | `TestGatherSystemReportsPathsAndRenderNodes`, `TestReportJSONCarriesTheEnvironmentPaths` + host/container `renderD128`, 2026-10-19 |
+| `-c`/`-i` aliases, `--theme`, `--kind` validation | measured | `TestShortConfigAndIntervalAliases`, `TestThemeFlagValidatesNames`, `TestKindFlagValidatesNames`, 2026-10-19 |
+| Man page + 3 completions match the CLI | measured | `scripts/check_packaging.sh`: 19 flags, 5 themes, version 1.0.0, 2026-10-19 |
+| Release binary is static and stripped | measured | `file`/`readelf`: ELF64, statically linked, stripped, 6,561,952 bytes, 2026-10-19 |
+| Release tarball + checksum | measured | `scripts/release.sh`: `dist/gputop-1.0.0-linux-x86_64.tar.gz`, 2,637,360 bytes, `sha256sum -c` OK, 2026-10-19 |
+| Release builds from a clean `git archive` | measured | `git archive 8e00695` → `scripts/release.sh`; same 6,561,952-byte static binary, checksum OK, 2026-10-19 |
+| Distroless hardware run with read-only kernel mounts | measured | `--devices`/`--check`/`--dump` with `/sys`, `/proc`, `/dev/dri` `:ro`; RX 6800, 7/7 metrics, 2026-10-19 |
+| Startup, CPU and RSS of the interface | measured | 120x40 pty: first output 21 ms, 2.6 % of one core over 10 s, 15.7 MiB peak RSS, 2026-10-19 |
+| `/proc` scan at ~800 processes | measured | 795–798 processes: 21–23 ms (median ≈ 22 ms); **SPEC target not met**, 2026-10-19 |
+| zsh/fish completion syntax | assumed | tools not installed on this host; bash + PKGBUILD parsed, 2026-10-19 |
+| CI release job | assumed | workflow added 2026-10-19; no remote, first green run pending |
 
 ---
 

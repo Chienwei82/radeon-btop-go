@@ -3,6 +3,7 @@ package check
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -130,6 +131,76 @@ func TestGatherNoDevicesStillRenders(t *testing.T) {
 	text := report.Render()
 	if !strings.Contains(text, "No amdgpu device") {
 		t.Fatalf("empty report does not say so:\n%s", text)
+	}
+}
+
+func TestRenderNodesListsOnlyTheCardsOwnNodes(t *testing.T) {
+	devRoot := t.TempDir()
+	for _, name := range []string{"renderD128", "renderD129", "card0", "by-path"} {
+		if err := os.WriteFile(filepath.Join(devRoot, name), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	render := "renderD128"
+	got := renderNodes([]model.AmdgpuDevice{{Render: &render}}, devRoot)
+	if !reflect.DeepEqual(got, []string{"renderD128"}) {
+		t.Fatalf("renderNodes = %v, want [renderD128]", got)
+	}
+}
+
+func TestRenderNodesAbsentDirectoryIsEmpty(t *testing.T) {
+	render := "renderD128"
+	got := renderNodes([]model.AmdgpuDevice{{Render: &render}},
+		filepath.Join(t.TempDir(), "missing"))
+	if len(got) != 0 {
+		t.Fatalf("renderNodes = %v, want none", got)
+	}
+}
+
+func TestGatherSystemReportsPathsAndRenderNodes(t *testing.T) {
+	deviceDir := t.TempDir()
+	devRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(devRoot, "renderD128"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	render := "renderD128"
+	snap := syntheticSnapshot(deviceDir, false)
+	snap.Devices[0].Device.Render = &render
+
+	report := GatherSystem(snap, "6.8.0-test", SystemOptions{
+		DrmRoot: deviceDir, ProcRoot: t.TempDir(), DevRoot: devRoot,
+		ProcessesScanned: true,
+	})
+	if report.DrmRoot != deviceDir || report.ProcRoot == "" {
+		t.Fatalf("roots = %q/%q, want %q and a procfs path", report.DrmRoot, report.ProcRoot, deviceDir)
+	}
+	if !reflect.DeepEqual(report.RenderNodes, []string{"renderD128"}) {
+		t.Fatalf("render nodes = %v, want [renderD128]", report.RenderNodes)
+	}
+	text := report.Render()
+	for _, want := range []string{"sysfs", "procfs", "render nodes", "renderD128"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("report misses %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestReportJSONCarriesTheEnvironmentPaths(t *testing.T) {
+	report := Report{
+		Kernel:      "6.8.0-test",
+		DrmRoot:     "/sys/class/drm",
+		ProcRoot:    "/proc",
+		RenderNodes: []string{"renderD128"},
+	}
+	env, ok := report.ToMap()["environment"].(map[string]any)
+	if !ok {
+		t.Fatal("environment is not a map")
+	}
+	if env["sysfs"] != "/sys/class/drm" || env["procfs"] != "/proc" {
+		t.Fatalf("paths = %v/%v", env["sysfs"], env["procfs"])
+	}
+	if !reflect.DeepEqual(env["render_nodes"], []string{"renderD128"}) {
+		t.Fatalf("render_nodes = %v, want [renderD128]", env["render_nodes"])
 	}
 }
 

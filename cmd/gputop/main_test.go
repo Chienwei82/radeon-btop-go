@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gputop/gputop-go/internal/cli"
@@ -11,8 +14,56 @@ func TestVersionFlagPrintsVersion(t *testing.T) {
 	if version == "" {
 		t.Fatal("version must not be empty")
 	}
-	if err := run([]string{"--version"}); err != nil {
-		t.Fatalf("run(--version) = %v, want nil", err)
+	var out bytes.Buffer
+	status, err := runWith([]string{"--version"}, &out)
+	if err != nil {
+		t.Fatalf("runWith(--version) = %v, want nil", err)
+	}
+	if status != 0 {
+		t.Fatalf("status = %d, want 0", status)
+	}
+	want := "gputop " + version + "\n"
+	if out.String() != want {
+		t.Fatalf("output = %q, want %q", out.String(), want)
+	}
+}
+
+func TestShortConfigAndIntervalAliases(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gputop.yaml")
+	if err := os.WriteFile(path, []byte("interval_ms: 400\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	status, err := runWith([]string{
+		"--check", "--drm-root", "/nonexistent/drm", "--proc-root", "/proc",
+		"-c", path, "-i", "0.2",
+	}, io.Discard)
+	if err != nil {
+		t.Fatalf("runWith(-c/-i) = %v, want nil", err)
+	}
+	if status != cli.ExitNoDevice {
+		t.Fatalf("status = %d, want %d", status, cli.ExitNoDevice)
+	}
+}
+
+func TestThemeFlagValidatesNames(t *testing.T) {
+	if _, err := runWith([]string{"--theme", "solarized", "--version"}, io.Discard); err == nil {
+		t.Fatal("an unknown theme was accepted")
+	}
+	for _, name := range []string{"default", "dracula", "gruvbox", "monochrome", "radeon"} {
+		if _, err := runWith([]string{"--theme", name, "--version"}, io.Discard); err != nil {
+			t.Fatalf("--theme %s = %v, want nil", name, err)
+		}
+	}
+}
+
+func TestKindFlagValidatesNames(t *testing.T) {
+	if _, err := runWith([]string{"--kind", "apu", "--version"}, io.Discard); err == nil {
+		t.Fatal("an unknown kind was accepted")
+	}
+	for _, kind := range []string{"auto", "igpu", "dgpu"} {
+		if _, err := runWith([]string{"--kind", kind, "--version"}, io.Discard); err != nil {
+			t.Fatalf("--kind %s = %v, want nil", kind, err)
+		}
 	}
 }
 

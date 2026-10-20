@@ -49,6 +49,7 @@ func Check(w io.Writer, in OneShot, opts CheckOptions) (int, error) {
 		procRoot = "/proc"
 	}
 	system := check.SystemOptions{
+		DrmRoot:          s.Options().DrmRoot,
 		ProcRoot:         procRoot,
 		ProcessesScanned: opts.ProcessesScanned,
 		BlocksEnabled:    opts.BlocksEnabled,

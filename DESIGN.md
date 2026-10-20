@@ -260,10 +260,35 @@ is pinned by a test rather than discovered on a terminal:
 
 - `format_revision == 3` (RDNA3): no sample, no published struct →
 unrecognised, sysfs fallback (SPEC §6). Same stance as the reference.
-- bubbles table API surface vs the 30-binding + identity-selection model:
-confirm via Context7 at Phase 2 start; fallback is a hand-rolled renderer
-(the pure-logic split makes this cheap).
-- Terminal capability detection for truecolor vs 256-colour in lipgloss:
-confirm at Phase 2; the cube-snap path must keep the ramp monotonic.
 - Upstream `gpu_metrics` encoding rewrites in flight: the registry design
 (two-byte key + one layout table per version) keeps additions one-entry.
+- `/proc` scan cost: measured ≈ 22 ms at ~800 processes (2026-10-19), ≈ 2 ms
+over the SPEC §10 target. The scan is syscall-bound; a raw `getdents` /
+`readlinkat` path is the next candidate, not a release blocker.
+- ~~bubbles table API vs the 30-binding + identity-selection model~~ Resolved:
+  bubbles is not a dependency; `procview` + `RenderTable` are pure functions.
+- ~~Terminal capability detection for truecolor vs 256-colour~~ Resolved in
+  Phase 2: the gradient snaps to the xterm cube when truecolor is absent.
+
+## 7. Packaging and release (Phase 4)
+
+One static binary, no runtime. The `release` stage of the `Containerfile`
+compiles with `CGO_ENABLED=0`, `-trimpath` and `-buildvcs=false`, strips the
+binary, and stamps the version with `-X main.version=${VERSION}`. The final
+image is `distroless/static-debian12:nonroot`; `.dockerignore` keeps VCS
+metadata, agent memory and build output out of the context, so a `git archive`
+of a tag is a complete build input.
+
+`scripts/release.sh` is the only release entry point: it builds the image,
+copies the binary out of it (the host never gets a Go toolchain), verifies the
+version, packages the binary, man page, completions, example config and
+licence files into `dist/gputop-<version>-linux-<arch>.tar.gz`, and writes a
+deterministic `.sha256`. `scripts/check_packaging.sh` reads the flag names and
+themes from the Go sources and fails when the man page or a completion drifts,
+or when the version disagrees between the binary, man page, `PKGBUILD` and
+`Containerfile`. The Arch recipe builds through podman (`makedepends=('podman')`)
+and installs exactly the files the repository carries.
+
+Licence: GPL-3.0-or-later for this port, with the upstream MIT copyright and
+licence reproduced in `NOTICE`; both are installed under
+`/usr/share/licenses/gputop/`.

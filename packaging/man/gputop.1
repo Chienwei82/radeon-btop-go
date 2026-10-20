@@ -1,52 +1,228 @@
-.TH GPUTOP 1 "2026-10-13" "gputop 0.1.0" "User Commands"
+.\" Manual page for gputop-go.
+.\"
+.\" Every option documented here is registered in cmd/gputop/main.go, and the
+.\" version matches the binary's default. scripts/check_packaging.sh fails when
+.\" a flag is missing from this page or from one of the shell completions.
+.TH GPUTOP 1 "2026-10-19" "gputop 1.0.0" "User Commands"
 .SH NAME
 gputop \- btop-style terminal monitor for AMD Radeon GPUs
 .SH SYNOPSIS
 .B gputop
 [\fIOPTIONS\fR]
+.br
+.B gputop
+\fB\-\-dump\fR [\fB\-\-pretty\fR] [\fIOPTIONS\fR]
+.br
+.B gputop
+\fB\-\-devices\fR [\fIOPTIONS\fR]
+.br
+.B gputop
+\fB\-\-check\fR [\fB\-\-json\fR] [\fIOPTIONS\fR]
 .SH DESCRIPTION
-Reads what the amdgpu kernel driver already publishes \(utilisation, clocks,
-temperatures, power, throttle reasons, per-process engine time and memory\)
-and shows it in one screen. Never writes to the GPU.
+Reads what the amdgpu kernel driver already publishes (utilisation, clocks,
+temperatures, power, throttle reasons, per-process engine time and memory)
+and shows it in one screen. With no options it starts the terminal interface;
+the headless modes make the same data scriptable.
+.PP
+Monitoring is read-only by construction. gputop never opens a sysfs or procfs
+path for writing and never changes clocks, power limits or profiles, so it is
+safe to leave running beside a game, a compute job or a display server.
+.PP
+Absent readings are shown as \fBN/A\fR (or an empty cell in a recording), never
+as zero. A partial process view is labelled as partial: without root, other
+users' \fIfdinfo\fR files are unreadable and the table says so.
 .SH OPTIONS
 .TP
 \fB\-c\fR, \fB\-\-config\fR \fIPATH\fR
-Config file instead of the default search locations.
+Read configuration from PATH instead of the default search locations.
 .TP
 \fB\-i\fR, \fB\-\-interval\fR \fISECONDS\fR
-Sampling interval, overriding general.interval_ms.
+Sampling interval, overriding \fIinterval_ms\fR from the configuration.
+.TP
+\fB\-\-drm-root\fR \fIPATH\fR
+Read the DRM class directory at PATH instead of /sys/class/drm.
+.TP
+\fB\-\-proc-root\fR \fIPATH\fR
+Read procfs at PATH instead of /proc.
 .TP
 \fB\-\-dump\fR
-One JSON snapshot to stdout and exit.
+Write one JSON snapshot to standard output and exit. The snapshot carries
+every value the interface draws, so a bug report and a script see the same
+facts.
+.TP
+\fB\-\-pretty\fR
+Indent \fB\-\-dump\fR output for human reading. Ignored without \fB\-\-dump\fR.
 .TP
 \fB\-\-devices\fR
-List discovered GPUs as JSON and exit.
+List the discovered AMD GPUs as JSON and exit.
 .TP
-\fB\-\-check\fR
-Report which metrics this machine can provide, and why any are missing.
+\fB\-\-kind\fR \fIauto\fR|\fIigpu\fR|\fIdgpu\fR
+Force every device to be classified as integrated or discrete instead of
+using the discovery heuristics.
+.TP
+\fB\-\-theme\fR \fINAME\fR
+Colour theme: default, dracula, gruvbox, monochrome or radeon. The same set
+is available as \fIui.theme\fR and can be cycled with the \fBm\fR key.
+.TP
+\fB\-\-no-color\fR
+Never emit colour, even on a colour terminal. The same as \fIui.no_color\fR.
+.TP
+\fB\-\-no-processes\fR
+Skip the /proc scan, which is the most expensive part of a sample. The
+process table then reports that it was not read, rather than appearing idle.
+.TP
+\fB\-\-blocks\fR
+Force the optional per-block panel on, overriding \fIblocks.enabled\fR. The
+panel is fed by a supervised \fIradeontop\fR child.
+.TP
+\fB\-\-no-blocks\fR
+Never start radeontop, even when the configuration enables the panel.
+Mutually exclusive with \fB\-\-blocks\fR.
 .TP
 \fB\-\-log\fR \fIPATH\fR
-Record the session (.csv or .json; + .zst compresses).
+Record the session to PATH while the interface runs. The suffix decides the
+format: .csv, .json, .jsonl or .ndjson; a trailing .zst or .zstd compresses
+with zstd. Records are appended and flushed one at a time, so an interrupted
+session is still readable. Cannot be combined with \fB\-\-check\fR,
+\fB\-\-dump\fR or \fB\-\-devices\fR.
+.TP
+\fB\-\-check\fR
+Report which metrics this machine can provide and why any are missing: kernel
+release against the driver floor, gpu_metrics ABI recognition, per-attribute
+presence, process-table ownership, render nodes and the radeontop panel.
+.TP
+\fB\-\-json\fR
+Emit the \fB\-\-check\fR report as JSON. Ignored without \fB\-\-check\fR.
 .TP
 \fB\-\-version\fR
-Print version and exit.
+Print the version and exit.
+.SH KEYS
+.TP
+.B q
+Quit, saving the interface state first.
+.TP
+.B tab
+, \fBshift+tab\fR
+Next / previous GPU.
+.TP
+.B o
+Overview: every GPU at once.
+.TP
+.B 1\-9
+Jump to GPU 1 to 9.
+.TP
+.B R
+Sample now.
+.TP
+.B +
+, \fB\-
+Faster / slower sampling.
+.TP
+.B m
+Cycle the colour theme.
+.TP
+.B p
+Show or hide the process table.
+.TP
+.B s
+, \fBS\fR, \fBr\fR
+Next / previous sort column, reverse the direction.
+.TP
+.B /
+Filter processes; \fBesc\fR clears the filter.
+.TP
+.B a
+Show or hide idle clients.
+.TP
+.B t
+Nest the table by parent process.
+.TP
+.B c
+Show the full command line instead of the short name.
+.TP
+.B up
+, \fBdown\fR
+Move the process selection.
+.TP
+.B k
+Signal the selected process. Disabled unless \fIprocess.allow_kill\fR is
+true, and always asks for confirmation naming the target.
+.TP
+.B h
+, \fB?\fR
+Open or close the help overlay.
 .SH FILES
-.I ~/.config/gputop/gputop.toml
-.RS
-User configuration (see gputop.example.toml).
-.RE
-.I ~/.config/gputop/config.toml
-.RS
-Session state written by gputop itself ($GPUTOP_STATE overrides).
-.RE
+.TP
+.I ~/.config/gputop/gputop.yaml
+User configuration. Every key is optional; see gputop.example.yaml.
+.TP
+.I ~/.config/gputop/config.yaml
+Session state written by gputop itself (theme, interval, sort, filter, view
+choices). The write is atomic and edits the parsed document in place, so
+comments and key order survive. \fB$GPUTOP_STATE\fR overrides the path.
+.TP
+.I /sys/class/drm/card*/device/
+VRAM/GTT, busy percentage, DPM clocks, PCIe link, gpu_metrics, SCPP profile
+and overdrive tables. Read-only.
+.TP
+.I /sys/class/hwmon/hwmon*/
+Temperatures, power and fan. Read-only.
+.TP
+.I /proc/<pid>/fdinfo/
+Per-process DRM accounting: resident VRAM/GTT and cumulative engine time.
+Read-only. Unreadable files for other users are reported as a partial view.
+.TP
+.I /dev/dri
+Optional render nodes, listed by \fB\-\-check\fR when present. The process
+table needs a node; sysfs monitoring does not.
+.SH ENVIRONMENT
+.TP
+.B GPUTOP_CONFIG
+Configuration file to load before the default location.
+.TP
+.B GPUTOP_STATE
+File the session state is read from and written to.
+.SH EXAMPLES
+.TP
+.B gputop
+Start the terminal interface.
+.TP
+.B gputop --check
+Explain what this machine can show and why anything is missing.
+.TP
+.B gputop --dump --pretty
+Print one complete snapshot for a bug report.
+.TP
+.B gputop --devices
+List the AMD cards discovery found.
+.TP
+.B gputop --log session.csv.zst
+Record the interface to a compressed CSV while it runs.
+.TP
+.B gputop --theme gruvbox --no-blocks
+Pick a palette and leave the optional radeontop child alone.
 .SH "EXIT STATUS"
 .TP
 .B 0
-Success.
+Success, including a headless mode that answered its question.
+.TP
+.B 1
+Usage error, unreadable configuration that could not be defaulted, or an
+unexpected failure. The message names the cause.
 .TP
 .B 3
-No AMD GPU present.
+No AMD GPU was found. This is a fact about the machine, not a failure of
+gputop, and lets a script distinguish "no hardware" from "broken".
+.SH NOTES
+The optional blocks panel starts radeontop as a child. It is off by default
+because an unprivileged radeontop usually answers "are you root?". The rest
+of the monitor needs no privileges.
+.PP
+An unknown gpu_metrics revision, including any 3.x layout, is never guessed
+at: the readers fall back to sysfs and \fB\-\-check\fR names the revision.
 .SH "SEE ALSO"
-.BR radeontop (1)
+.BR radeontop (1),
+.BR btop (1)
 .SH LICENSE
-GPL-3.0-or-later.
+GPL-3.0-or-later. The upstream Python implementation is MIT-licensed; see
+NOTICE in the source distribution for the attribution.

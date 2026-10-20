@@ -41,7 +41,7 @@ process:
   allow_kill: false
 
 ui:
-  # One of: default, dracula, gruvbox. Also switchable at runtime with the "m" key.
+  # One of: default, dracula, gruvbox, monochrome, radeon. Also switchable at runtime with the "m" key.
   theme: default
   # Disable 24-bit colour and fall back to the terminal's own ANSI palette.
   no_color: false
