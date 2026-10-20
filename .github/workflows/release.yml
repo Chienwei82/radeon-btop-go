@@ -28,17 +28,18 @@ concurrency:
 
 jobs:
   artifacts:
-    # A fork cannot write to this repository's releases, so the job is skipped
-    # there rather than failing on a permission the PR cannot grant.
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # This job only reads the repository, so it runs on fork pull requests too:
+    # a contributor gets the artifacts without needing write access.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      base: ${{ steps.version.outputs.base }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          # The tags matter: the release workflow reads them to decide whether
-          # a release already exists for the version it is about to publish.
-          fetch-depth: 0
 
       - name: Install the packaging tools
         # appimagetool shells out to mksquashfs, and validates the desktop file
@@ -53,7 +54,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          base="$(sed -nE 's/^var version = "([^"]+)"$/\\1/p' cmd/gputop/main.go)"
+          base="$(sed -nE 's/^var version = "([^"]+)"$/\1/p' cmd/gputop/main.go)"
           if [ -z "${base}" ]; then
             echo "release: cannot read the version from cmd/gputop/main.go" >&2
             exit 1
@@ -77,8 +78,14 @@ jobs:
 
       - name: Build the AppImage
         run: |
-          ./scripts/build_appimage.sh "${{ steps.version.outputs.version }}" \
-            "dist/gputop-${{ steps.version.outputs.version }}-linux-x86_64/gputop"
+          # The binary is the one release.sh just extracted; the glob avoids
+          # hard-coding the architecture the runner happens to have.
+          binary="$(find dist -maxdepth 2 -type f -path '*/gputop-*' -name gputop | head -1)"
+          if [ -z "${binary}" ]; then
+            echo "release: release.sh did not leave a binary behind" >&2
+            exit 1
+          fi
+          ./scripts/build_appimage.sh "${{ steps.version.outputs.version }}" "${binary}"
 
       - name: Verify the checksums
         run: (cd dist && sha256sum -c ./*.sha256)
@@ -87,7 +94,7 @@ jobs:
         run: |
           mkdir -p upload
           cp dist/*.tar.gz dist/*.tar.gz.sha256 \
-             dist/*.AppImage dist/*.AppImage.sha256 upload/
+             dist/gputop-*.AppImage dist/gputop-*.AppImage.sha256 upload/
 
       - name: Upload the artifacts to the workflow run
         uses: actions/upload-artifact@v4
@@ -96,47 +103,74 @@ jobs:
           path: upload/
           if-no-files-found: error
 
+  publish:
+    # A fork cannot write to this repository's releases, so the job is skipped
+    # there rather than failing on a permission the pull request cannot grant.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    needs: artifacts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tags matter: the release reads them to decide whether a release
+          # already exists for the version it is about to publish.
+          fetch-depth: 0
+
+      - name: Download the artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: gputop-${{ needs.artifacts.outputs.version }}
+          path: upload
+
       - name: Publish the prerelease
         if: github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
-          BASE: ${{ steps.version.outputs.base }}
+          TAG: ${{ needs.artifacts.outputs.tag }}
+          VERSION: ${{ needs.artifacts.outputs.version }}
+          BASE: ${{ needs.artifacts.outputs.base }}
           NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           notes="$(printf 'Incremental build of PR #%s.\n\nBase version: %s\n' \
             "${NUMBER}" "${BASE}")"
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            # The tag already exists from an earlier push of this PR: refresh
-            # the assets in place rather than failing.
-            gh release upload "${TAG}" upload/* --clobber
-            gh release edit "${TAG}" --prerelease --notes "${notes}"
-          else
-            gh release create "${TAG}" upload/* \
-              --title "${TAG}" --notes "${notes}" --prerelease \
-              --target "${GITHUB_SHA}"
+            # The tag already exists from an earlier push of this pull request.
+            # The old release names an older commit, so it is removed and
+            # rebuilt rather than given assets that disagree with its tag.
+            gh release delete "${TAG}" --yes --cleanup-tag
           fi
+          # The tag points at the head of the branch, not at the synthetic
+          # merge commit GitHub builds for the pull request: that commit only
+          # exists once the pull request is merged, and an artifact tagged with
+          # it could not be reproduced.
+          gh release create "${TAG}" upload/* \
+            --title "${TAG}" --notes "${notes}" --prerelease \
+            --target "${HEAD_SHA}"
           printf 'release: published %s\n' "${TAG}"
 
       - name: Publish the release
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ needs.artifacts.outputs.tag }}
+          VERSION: ${{ needs.artifacts.outputs.version }}
         run: |
           if gh release view "${TAG}" >/dev/null 2>&1; then
-            gh release upload "${TAG}" upload/* --clobber
-            printf 'release: refreshed the assets of %s\n' "${TAG}"
+            # The release exists and its tag is already published. Its assets
+            # are left alone: a tag that already names a commit must keep the
+            # artifacts that commit produced.
+            printf 'release: %s already exists; its assets are left untouched\n' "${TAG}"
             exit 0
           fi
-          # The tag is created at the merge commit when it does not exist yet.
-          # An existing tag that points elsewhere is left untouched: moving a
-          # published tag would rewrite history.
+          # A tag that exists without a release points at some other commit.
+          # Moving it would rewrite history, so this is reported instead.
           if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
             printf 'release: tag %s exists and does not name this commit; skipping\n' "${TAG}" >&2
-            exit 0
+            exit 1
           fi
           notes="$(printf 'Release %s.\n\nSource: %s\n' \
             "${VERSION}" "${GITHUB_SHA}")"
