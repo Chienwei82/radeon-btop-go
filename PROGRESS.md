@@ -558,9 +558,9 @@ Branch `feature/pr-releases`, PR #1.
    from a `continuous` release *and* `mksquashfs` records each file's mtime.
    Fixed with a pinned `--runtime-file` (release `20251108`, checksum verified
    for all four architectures) and `-all-time` set to the commit date. Two
-   consecutive builds are now **byte-identical**
-   (`271e24eed60bbd6617bbbcc2c88ef944ab2bbb55e85b1e034ad128418d49811a` at the
-   time of writing — the hash moves with the source, the property does not).
+   consecutive builds of `v1.1.0` are **byte-identical** at
+   `713a69b030d78bd4de94d265c5d6f574999bc6cc65c70b4e6a61f554db494619` — the hash
+   moves with the source, the property does not.
 3. **Two jobs, split by permission.** `artifacts` compiles and uploads (read-only,
    so it also runs for forks); `publish` creates the release (`contents: write`,
    skipped for forks). Build and publish are different permissions.
