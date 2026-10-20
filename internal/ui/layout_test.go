@@ -272,6 +272,32 @@ func TestNoAlertLeavesTheStatusLineAlone(t *testing.T) {
 	}
 }
 
+// A cropped sensor panel must say that it is cropped: a dozen readings with
+// the last six silently missing looks like the card stopped reporting them.
+func TestTruncatedSensorsSayHowManyRowsAreHidden(t *testing.T) {
+	in := screenInput()
+	in.Width, in.Height = 120, 20
+	m := in.Snapshot.Devices[0]
+	for i := 0; i < 6; i++ {
+		c := model.Celsius(30 + i)
+		m.Temperatures = append(m.Temperatures, model.Temperature{Label: "extra", Celsius: &c})
+	}
+	in.Snapshot.Devices[0] = m
+	joined := strings.Join(plainRows(RenderScreen(in)), "\n")
+	if !strings.Contains(joined, "… ") || !strings.Contains(joined, " more") {
+		t.Fatalf("cropped sensors carry no scroll marker:\n%s", joined)
+	}
+}
+
+func TestCompleteSensorsCarryNoScrollMarker(t *testing.T) {
+	in := screenInput()
+	in.Width, in.Height = 120, 40
+	joined := strings.Join(plainRows(RenderScreen(in)), "\n")
+	if strings.Contains(joined, " more") {
+		t.Fatalf("complete sensor panel claims hidden rows:\n%s", joined)
+	}
+}
+
 func titledLine(lines []string, title string) bool {
 	for _, line := range lines {
 		if strings.TrimSpace(line) == title || strings.Contains(line, "╭─ "+title) {

@@ -168,37 +168,45 @@ type FooterInfo struct {
 
 // FooterPanel builds the status line above the key hints.
 //
+// Each fact is its own run with the separator in the track colour, so a
+// warning or an alert can be painted without repainting the whole line. The
+// plain text is unchanged from the single-run version: the line is still
+// "#7  ·  metrics sysfs  ·  tick 1000 ms  ·  cpu N/A".
+//
 // The blocks hint is filtered here rather than by the caller so that the
 // policy -- explain a problem, but stay silent about a deliberate choice
 // -- lives with the line that shows it.
 func FooterPanel(th Theme, info FooterInfo) Row {
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "#%d", info.Sequence)
-	sb.WriteString("  ·  ")
-	if info.MetricsSource != "" {
-		sb.WriteString("metrics " + info.MetricsSource)
-	} else {
-		sb.WriteString("metrics sysfs")
+	cells := []Cell{{Text: fmt.Sprintf("#%d", info.Sequence), Color: th.Accent}}
+	add := func(text, color string) {
+		cells = append(cells,
+			Cell{Text: "  ·  ", Color: th.Track},
+			Cell{Text: text, Color: color},
+		)
 	}
-	sb.WriteString("  ·  ")
-	fmt.Fprintf(&sb, "tick %.0f ms", info.TickMs)
-	sb.WriteString("  ·  ")
-	sb.WriteString("cpu " + info.CPU)
+	source := info.MetricsSource
+	if source == "" {
+		source = "sysfs"
+	}
+	add("metrics "+source, th.Text)
+	add(fmt.Sprintf("tick %.0f ms", info.TickMs), th.Text)
+	add("cpu "+info.CPU, th.Text)
 	if info.Visible != nil && info.Total != nil && *info.Total > *info.Visible {
-		fmt.Fprintf(&sb, "  ·  partial %d/%d procs", *info.Visible, *info.Total)
+		add(fmt.Sprintf("partial %d/%d procs", *info.Visible, *info.Total), th.Warn)
 	}
 	if len(info.Warnings) > 0 {
-		sb.WriteString("  ·  " + info.Warnings[0])
+		warning := info.Warnings[0]
 		if len(info.Warnings) > 1 {
-			fmt.Fprintf(&sb, " (+%d more)", len(info.Warnings)-1)
+			warning += fmt.Sprintf(" (+%d more)", len(info.Warnings)-1)
 		}
+		add(warning, th.Warn)
 	}
 	if info.BlocksStatus != "" && info.BlocksStatus != model.BlocksOK && info.BlocksStatus != model.BlocksDisabled {
 		hint := info.BlocksHint
 		if hint == "" {
 			hint = info.BlocksStatus.Hint()
 		}
-		sb.WriteString("  ·  blocks: " + hint)
+		add("blocks: "+hint, th.Muted)
 	}
-	return Row{Cells: []Cell{{Text: sb.String(), Color: th.Muted}}}
+	return Row{Cells: cells}
 }

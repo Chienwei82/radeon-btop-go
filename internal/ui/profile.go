@@ -55,5 +55,5 @@ func overdriveRows(m model.AmdgpuMetrics, th Theme, available int) []Row {
 // detailText is a plain, trimmed row: a row that renders wider than the
 // panel lays out would draw over the panel's own border.
 func detailText(text, color string, available int) Row {
-	return Row{Cells: []Cell{{Text: cutRunes(text, available), Color: color}}}
+	return Row{Cells: []Cell{{Text: CutWidth(text, available), Color: color}}}
 }

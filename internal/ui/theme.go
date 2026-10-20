@@ -21,6 +21,19 @@ type Theme struct {
 	OK     string
 	Warn   string
 	Alert  string
+	// Border overrides Accent for PanelBox frames in the current render. It
+	// is a transient seam set by RenderScreen for the alert flash; empty
+	// means "use the accent". Titles stay accent even while the frame
+	// flashes, so the reading is legible in both phases.
+	Border string
+}
+
+// frameColor is the colour of a panel's border for this render.
+func (t Theme) frameColor() string {
+	if t.Border != "" {
+		return t.Border
+	}
+	return t.Accent
 }
 
 var (

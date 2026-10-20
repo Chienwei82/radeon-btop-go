@@ -2,64 +2,167 @@
   <title>gputop: the key reference</title>
   <rect width="100%" height="100%" fill="#0d1117"/>
   <g font-family="'Fira Code','JetBrains Mono','DejaVu Sans Mono',monospace" font-size="14" xml:space="preserve">
-    <text x="18.00" y="270.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="270.00" fill="#61afef" font-weight="bold">gputop keys</text>
-    <text x="18.00" y="287.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="287.00" fill="#61afef" font-weight="bold">q               </text>
-    <text x="387.60" y="287.00" fill="#e6e6e6">quit</text>
-    <text x="18.00" y="304.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="304.00" fill="#61afef" font-weight="bold">tab / shift+tab </text>
-    <text x="387.60" y="304.00" fill="#e6e6e6">next / previous GPU</text>
-    <text x="18.00" y="321.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="321.00" fill="#61afef" font-weight="bold">1 … 9           </text>
-    <text x="387.60" y="321.00" fill="#e6e6e6">jump to GPU n</text>
-    <text x="18.00" y="338.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="338.00" fill="#61afef" font-weight="bold">o               </text>
-    <text x="387.60" y="338.00" fill="#e6e6e6">overview: every GPU at once</text>
-    <text x="18.00" y="355.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="355.00" fill="#61afef" font-weight="bold">m               </text>
-    <text x="387.60" y="355.00" fill="#e6e6e6">cycle colour theme</text>
-    <text x="18.00" y="372.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="372.00" fill="#61afef" font-weight="bold">+ / -           </text>
-    <text x="387.60" y="372.00" fill="#e6e6e6">sampling interval</text>
-    <text x="18.00" y="389.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="389.00" fill="#61afef" font-weight="bold">p               </text>
-    <text x="387.60" y="389.00" fill="#e6e6e6">show or hide the process table</text>
-    <text x="18.00" y="406.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="406.00" fill="#61afef" font-weight="bold">s / S           </text>
-    <text x="387.60" y="406.00" fill="#e6e6e6">next / previous sort column</text>
-    <text x="18.00" y="423.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="423.00" fill="#61afef" font-weight="bold">r               </text>
-    <text x="387.60" y="423.00" fill="#e6e6e6">reverse the sort</text>
-    <text x="18.00" y="440.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="440.00" fill="#61afef" font-weight="bold">R               </text>
-    <text x="387.60" y="440.00" fill="#e6e6e6">sample now</text>
-    <text x="18.00" y="457.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="457.00" fill="#61afef" font-weight="bold">/               </text>
-    <text x="387.60" y="457.00" fill="#e6e6e6">filter processes</text>
-    <text x="18.00" y="474.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="474.00" fill="#61afef" font-weight="bold">esc             </text>
-    <text x="387.60" y="474.00" fill="#e6e6e6">clear the filter</text>
-    <text x="18.00" y="491.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="491.00" fill="#61afef" font-weight="bold">a               </text>
-    <text x="387.60" y="491.00" fill="#e6e6e6">show or hide idle processes</text>
-    <text x="18.00" y="508.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="508.00" fill="#61afef" font-weight="bold">t               </text>
-    <text x="387.60" y="508.00" fill="#e6e6e6">process tree on / off</text>
-    <text x="18.00" y="525.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="525.00" fill="#61afef" font-weight="bold">c               </text>
-    <text x="387.60" y="525.00" fill="#e6e6e6">full command line</text>
-    <text x="18.00" y="542.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="542.00" fill="#61afef" font-weight="bold">up / down       </text>
-    <text x="387.60" y="542.00" fill="#e6e6e6">move the selection</text>
-    <text x="18.00" y="559.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="559.00" fill="#61afef" font-weight="bold">k               </text>
-    <text x="387.60" y="559.00" fill="#e6e6e6">send SIGTERM or SIGKILL to the selected process</text>
-    <text x="18.00" y="576.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="576.00" fill="#61afef" font-weight="bold">h               </text>
-    <text x="387.60" y="576.00" fill="#e6e6e6">this help</text>
-    <text x="18.00" y="593.00" fill="#e6e6e6">                            </text>
-    <text x="253.20" y="593.00" fill="#61afef" font-weight="bold">esc</text>
-    <text x="278.40" y="593.00" fill="#7f848e"> close</text>
+    <text x="18.00" y="253.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="253.00" fill="#61afef">╭─ </text>
+    <text x="236.40" y="253.00" fill="#61afef" font-weight="bold">gputop keys</text>
+    <text x="328.80" y="253.00" fill="#61afef"> </text>
+    <text x="337.20" y="253.00" fill="#61afef">──────────────────────────────────────────────────────────</text>
+    <text x="824.40" y="253.00" fill="#61afef">╮</text>
+    <text x="18.00" y="270.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="270.00" fill="#61afef">│</text>
+    <text x="219.60" y="270.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="270.00" fill="#61afef" font-weight="bold">q               </text>
+    <text x="362.40" y="270.00" fill="#e6e6e6">quit</text>
+    <text x="396.00" y="270.00" fill="#e6e6e6">                                                  </text>
+    <text x="816.00" y="270.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="270.00" fill="#61afef">│</text>
+    <text x="18.00" y="287.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="287.00" fill="#61afef">│</text>
+    <text x="219.60" y="287.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="287.00" fill="#61afef" font-weight="bold">tab / shift+tab </text>
+    <text x="362.40" y="287.00" fill="#e6e6e6">next / previous GPU</text>
+    <text x="522.00" y="287.00" fill="#e6e6e6">                                   </text>
+    <text x="816.00" y="287.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="287.00" fill="#61afef">│</text>
+    <text x="18.00" y="304.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="304.00" fill="#61afef">│</text>
+    <text x="219.60" y="304.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="304.00" fill="#61afef" font-weight="bold">1 … 9           </text>
+    <text x="362.40" y="304.00" fill="#e6e6e6">jump to GPU n</text>
+    <text x="471.60" y="304.00" fill="#e6e6e6">                                         </text>
+    <text x="816.00" y="304.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="304.00" fill="#61afef">│</text>
+    <text x="18.00" y="321.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="321.00" fill="#61afef">│</text>
+    <text x="219.60" y="321.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="321.00" fill="#61afef" font-weight="bold">o               </text>
+    <text x="362.40" y="321.00" fill="#e6e6e6">overview: every GPU at once</text>
+    <text x="589.20" y="321.00" fill="#e6e6e6">                           </text>
+    <text x="816.00" y="321.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="321.00" fill="#61afef">│</text>
+    <text x="18.00" y="338.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="338.00" fill="#61afef">│</text>
+    <text x="219.60" y="338.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="338.00" fill="#61afef" font-weight="bold">m               </text>
+    <text x="362.40" y="338.00" fill="#e6e6e6">cycle colour theme</text>
+    <text x="513.60" y="338.00" fill="#e6e6e6">                                    </text>
+    <text x="816.00" y="338.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="338.00" fill="#61afef">│</text>
+    <text x="18.00" y="355.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="355.00" fill="#61afef">│</text>
+    <text x="219.60" y="355.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="355.00" fill="#61afef" font-weight="bold">+ / -           </text>
+    <text x="362.40" y="355.00" fill="#e6e6e6">sampling interval</text>
+    <text x="505.20" y="355.00" fill="#e6e6e6">                                     </text>
+    <text x="816.00" y="355.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="355.00" fill="#61afef">│</text>
+    <text x="18.00" y="372.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="372.00" fill="#61afef">│</text>
+    <text x="219.60" y="372.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="372.00" fill="#61afef" font-weight="bold">p               </text>
+    <text x="362.40" y="372.00" fill="#e6e6e6">show or hide the process table</text>
+    <text x="614.40" y="372.00" fill="#e6e6e6">                        </text>
+    <text x="816.00" y="372.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="372.00" fill="#61afef">│</text>
+    <text x="18.00" y="389.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="389.00" fill="#61afef">│</text>
+    <text x="219.60" y="389.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="389.00" fill="#61afef" font-weight="bold">s / S           </text>
+    <text x="362.40" y="389.00" fill="#e6e6e6">next / previous sort column</text>
+    <text x="589.20" y="389.00" fill="#e6e6e6">                           </text>
+    <text x="816.00" y="389.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="389.00" fill="#61afef">│</text>
+    <text x="18.00" y="406.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="406.00" fill="#61afef">│</text>
+    <text x="219.60" y="406.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="406.00" fill="#61afef" font-weight="bold">r               </text>
+    <text x="362.40" y="406.00" fill="#e6e6e6">reverse the sort</text>
+    <text x="496.80" y="406.00" fill="#e6e6e6">                                      </text>
+    <text x="816.00" y="406.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="406.00" fill="#61afef">│</text>
+    <text x="18.00" y="423.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="423.00" fill="#61afef">│</text>
+    <text x="219.60" y="423.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="423.00" fill="#61afef" font-weight="bold">R               </text>
+    <text x="362.40" y="423.00" fill="#e6e6e6">sample now</text>
+    <text x="446.40" y="423.00" fill="#e6e6e6">                                            </text>
+    <text x="816.00" y="423.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="423.00" fill="#61afef">│</text>
+    <text x="18.00" y="440.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="440.00" fill="#61afef">│</text>
+    <text x="219.60" y="440.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="440.00" fill="#61afef" font-weight="bold">/               </text>
+    <text x="362.40" y="440.00" fill="#e6e6e6">filter processes</text>
+    <text x="496.80" y="440.00" fill="#e6e6e6">                                      </text>
+    <text x="816.00" y="440.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="440.00" fill="#61afef">│</text>
+    <text x="18.00" y="457.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="457.00" fill="#61afef">│</text>
+    <text x="219.60" y="457.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="457.00" fill="#61afef" font-weight="bold">esc             </text>
+    <text x="362.40" y="457.00" fill="#e6e6e6">clear the filter</text>
+    <text x="496.80" y="457.00" fill="#e6e6e6">                                      </text>
+    <text x="816.00" y="457.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="457.00" fill="#61afef">│</text>
+    <text x="18.00" y="474.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="474.00" fill="#61afef">│</text>
+    <text x="219.60" y="474.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="474.00" fill="#61afef" font-weight="bold">a               </text>
+    <text x="362.40" y="474.00" fill="#e6e6e6">show or hide idle processes</text>
+    <text x="589.20" y="474.00" fill="#e6e6e6">                           </text>
+    <text x="816.00" y="474.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="474.00" fill="#61afef">│</text>
+    <text x="18.00" y="491.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="491.00" fill="#61afef">│</text>
+    <text x="219.60" y="491.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="491.00" fill="#61afef" font-weight="bold">t               </text>
+    <text x="362.40" y="491.00" fill="#e6e6e6">process tree on / off</text>
+    <text x="538.80" y="491.00" fill="#e6e6e6">                                 </text>
+    <text x="816.00" y="491.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="491.00" fill="#61afef">│</text>
+    <text x="18.00" y="508.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="508.00" fill="#61afef">│</text>
+    <text x="219.60" y="508.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="508.00" fill="#61afef" font-weight="bold">c               </text>
+    <text x="362.40" y="508.00" fill="#e6e6e6">full command line</text>
+    <text x="505.20" y="508.00" fill="#e6e6e6">                                     </text>
+    <text x="816.00" y="508.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="508.00" fill="#61afef">│</text>
+    <text x="18.00" y="525.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="525.00" fill="#61afef">│</text>
+    <text x="219.60" y="525.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="525.00" fill="#61afef" font-weight="bold">up / down       </text>
+    <text x="362.40" y="525.00" fill="#e6e6e6">move the selection</text>
+    <text x="513.60" y="525.00" fill="#e6e6e6">                                    </text>
+    <text x="816.00" y="525.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="525.00" fill="#61afef">│</text>
+    <text x="18.00" y="542.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="542.00" fill="#61afef">│</text>
+    <text x="219.60" y="542.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="542.00" fill="#61afef" font-weight="bold">k               </text>
+    <text x="362.40" y="542.00" fill="#e6e6e6">send SIGTERM or SIGKILL to the selected process</text>
+    <text x="757.20" y="542.00" fill="#e6e6e6">       </text>
+    <text x="816.00" y="542.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="542.00" fill="#61afef">│</text>
+    <text x="18.00" y="559.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="559.00" fill="#61afef">│</text>
+    <text x="219.60" y="559.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="559.00" fill="#61afef" font-weight="bold">h               </text>
+    <text x="362.40" y="559.00" fill="#e6e6e6">this help</text>
+    <text x="438.00" y="559.00" fill="#e6e6e6">                                             </text>
+    <text x="816.00" y="559.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="559.00" fill="#61afef">│</text>
+    <text x="18.00" y="576.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="576.00" fill="#61afef">│</text>
+    <text x="219.60" y="576.00" fill="#e6e6e6"> </text>
+    <text x="228.00" y="576.00" fill="#61afef" font-weight="bold">esc</text>
+    <text x="253.20" y="576.00" fill="#7f848e"> close</text>
+    <text x="303.60" y="576.00" fill="#e6e6e6">                                                             </text>
+    <text x="816.00" y="576.00" fill="#e6e6e6"> </text>
+    <text x="824.40" y="576.00" fill="#61afef">│</text>
+    <text x="18.00" y="593.00" fill="#e6e6e6">                       </text>
+    <text x="211.20" y="593.00" fill="#61afef">╰</text>
+    <text x="219.60" y="593.00" fill="#61afef">────────────────────────────────────────────────────────────────────────</text>
+    <text x="824.40" y="593.00" fill="#61afef">╯</text>
   </g>
 </svg>

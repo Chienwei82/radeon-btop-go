@@ -96,10 +96,10 @@
     <text x="690.00" y="168.00" fill="#61afef">│</text>
     <text x="698.40" y="168.00" fill="#e6e6e6"> </text>
     <text x="706.80" y="168.00" fill="#7f848e">temp edge     </text>
-    <text x="824.40" y="168.00" fill="#d7d7af">███████</text>
-    <text x="883.20" y="168.00" fill="#3a3f4b">░░░░░░░░</text>
-    <text x="950.40" y="168.00" fill="#e6e6e6"> 61°C</text>
-    <text x="992.40" y="168.00" fill="#e6e6e6">  </text>
+    <text x="824.40" y="168.00" fill="#d7d7af">████████</text>
+    <text x="891.60" y="168.00" fill="#3a3f4b">░░░░░░░░</text>
+    <text x="958.80" y="168.00" fill="#e6e6e6"> 61°C</text>
+    <text x="1000.80" y="168.00" fill="#e6e6e6"> </text>
     <text x="1009.20" y="168.00" fill="#e6e6e6"> </text>
     <text x="1017.60" y="168.00" fill="#61afef">│</text>
     <text x="18.00" y="185.00" fill="#61afef">│</text>
@@ -112,9 +112,9 @@
     <text x="698.40" y="185.00" fill="#e6e6e6"> </text>
     <text x="706.80" y="185.00" fill="#7f848e">temp junction </text>
     <text x="824.40" y="185.00" fill="#d7d7af">█████████</text>
-    <text x="900.00" y="185.00" fill="#3a3f4b">░░░░░░</text>
-    <text x="950.40" y="185.00" fill="#e6e6e6"> 74°C</text>
-    <text x="992.40" y="185.00" fill="#e6e6e6">  </text>
+    <text x="900.00" y="185.00" fill="#3a3f4b">░░░░░░░</text>
+    <text x="958.80" y="185.00" fill="#e6e6e6"> 74°C</text>
+    <text x="1000.80" y="185.00" fill="#e6e6e6"> </text>
     <text x="1009.20" y="185.00" fill="#e6e6e6"> </text>
     <text x="1017.60" y="185.00" fill="#61afef">│</text>
     <text x="18.00" y="202.00" fill="#61afef">│</text>
@@ -126,10 +126,10 @@
     <text x="690.00" y="202.00" fill="#61afef">│</text>
     <text x="698.40" y="202.00" fill="#e6e6e6"> </text>
     <text x="706.80" y="202.00" fill="#7f848e">temp mem      </text>
-    <text x="824.40" y="202.00" fill="#d7d7af">████████</text>
-    <text x="891.60" y="202.00" fill="#3a3f4b">░░░░░░░</text>
-    <text x="950.40" y="202.00" fill="#e6e6e6"> 68°C</text>
-    <text x="992.40" y="202.00" fill="#e6e6e6">  </text>
+    <text x="824.40" y="202.00" fill="#d7d7af">█████████</text>
+    <text x="900.00" y="202.00" fill="#3a3f4b">░░░░░░░</text>
+    <text x="958.80" y="202.00" fill="#e6e6e6"> 68°C</text>
+    <text x="1000.80" y="202.00" fill="#e6e6e6"> </text>
     <text x="1009.20" y="202.00" fill="#e6e6e6"> </text>
     <text x="1017.60" y="202.00" fill="#61afef">│</text>
     <text x="18.00" y="219.00" fill="#61afef">│</text>
@@ -635,7 +635,13 @@
     <text x="18.00" y="797.00" fill="#61afef">╰</text>
     <text x="26.40" y="797.00" fill="#61afef">──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</text>
     <text x="1017.60" y="797.00" fill="#61afef">╯</text>
-    <text x="18.00" y="814.00" fill="#7f848e">#120  ·  metrics v1.3  ·  tick 1000 ms  ·  cpu N/A</text>
+    <text x="18.00" y="814.00" fill="#61afef">#120</text>
+    <text x="51.60" y="814.00" fill="#3a3f4b">  ·  </text>
+    <text x="93.60" y="814.00" fill="#e6e6e6">metrics v1.3</text>
+    <text x="194.40" y="814.00" fill="#3a3f4b">  ·  </text>
+    <text x="236.40" y="814.00" fill="#e6e6e6">tick 1000 ms</text>
+    <text x="337.20" y="814.00" fill="#3a3f4b">  ·  </text>
+    <text x="379.20" y="814.00" fill="#e6e6e6">cpu N/A</text>
     <text x="18.00" y="831.00" fill="#61afef" font-weight="bold">q</text>
     <text x="26.40" y="831.00" fill="#7f848e"> quit</text>
     <text x="68.40" y="831.00" fill="#3a3f4b"> · </text>

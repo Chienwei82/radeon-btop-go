@@ -44,6 +44,35 @@ func TestHelpHidesNothingEveryBindingIsDocumented(t *testing.T) {
 	}
 }
 
+// A modal is a screen of its own, so it is framed like the dashboard rather
+// than floating as loose text over it.
+func TestOverlaysAreFramedLikeTheDashboard(t *testing.T) {
+	help := PlainLines(HelpOverlay(DefaultHelp("signal the selected process"), DefaultTheme))
+	if !strings.HasPrefix(help[0], "╭─ gputop keys ") {
+		t.Fatalf("help top border = %q, want a framed title", help[0])
+	}
+	if !strings.HasPrefix(help[len(help)-1], "╰") {
+		t.Fatalf("help bottom border = %q, want a closing rule", help[len(help)-1])
+	}
+
+	filter := PlainLines(FilterPrompt("llama", DefaultTheme))
+	if !strings.HasPrefix(filter[0], "╭─ Filter processes ") {
+		t.Fatalf("filter top border = %q, want a framed title", filter[0])
+	}
+
+	kill := PlainLines(KillConfirm(testProcessNamed(1001, "llama-server"), DefaultTheme))
+	if !strings.HasPrefix(kill[0], "╭─ Send a signal to pid 1001? ") {
+		t.Fatalf("kill top border = %q, want the target in the frame", kill[0])
+	}
+	for name, lines := range map[string][]string{"help": help, "filter": filter, "kill": kill} {
+		for _, line := range lines {
+			if !strings.HasPrefix(line, "╭") && !strings.HasPrefix(line, "│") && !strings.HasPrefix(line, "╰") {
+				t.Fatalf("%s overlay line is outside its frame: %q", name, line)
+			}
+		}
+	}
+}
+
 func TestKillConfirmDescribesTheTarget(t *testing.T) {
 	p := testProcessNamed(1001, "llama-server")
 	p.User = "david"
@@ -93,9 +122,13 @@ func TestHelpBlocksNoteAppendsWhenPresent(t *testing.T) {
 	if len(withNote) != len(without)+1 {
 		t.Fatalf("note lines = %d, want %d", len(withNote), len(without)+1)
 	}
-	// The note is the last entry; "esc close" still closes the overlay.
-	if !strings.Contains(withNote[len(withNote)-2], "radeontop is not installed") {
-		t.Fatalf("penultimate line = %q, want the blocks note", withNote[len(withNote)-2])
+	// The note sits above the way out, inside the frame.
+	joined := strings.Join(withNote, "\n")
+	if !strings.Contains(joined, "radeontop is not installed") {
+		t.Fatalf("help misses the blocks note:\n%s", joined)
+	}
+	if !strings.Contains(withNote[len(withNote)-2], "esc") {
+		t.Fatalf("penultimate line = %q, want the way out", withNote[len(withNote)-2])
 	}
 }
 

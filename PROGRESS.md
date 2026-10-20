@@ -450,8 +450,94 @@ badge lost its reverse-video highlight, and the key hints were one muted run.
 - All five `docs/screenshots/*.svg` regenerated through `ui.RenderScreen`; a
   live pty run reached the framed TUI and quit cleanly.
 - Deferred code work (alert border flash, style cache, display-width helper,
-  dead code, shared style parser, scroll affordance) is queued in the agent
-  memory bank, not silently dropped.
+  dead code, shared style parser, scroll affordance) was queued at the time
+  and is implemented in the section below.
+
+---
+
+## Post-v1 deferred improvements (2026-10-19)
+
+**Scope:** the code work queued by the visual pass. Not a phase; `v1.0.0`
+stays immutable.
+
+**Implemented**
+
+- **Alert flash reaches the screen (SPEC FR12).** `LayoutInput.FlashOn` carries
+  the phase, `RenderScreen` sets a transient `Theme.Border`, and `PanelBox`
+  paints the frame with it while the title keeps the accent.
+  `AlertBorderColor` is no longer tested dead code. Tests:
+  `TestActiveAlertFlashesThePanelFrames`,
+  `TestNoAlertLeavesTheFramesOnTheAccent`,
+  `TestPanelBoxBorderSeamKeepsTheTitleAccent`.
+- **Style cache.** `App.styleCell` resolves one `lipgloss.Style` per colour
+  key and reuses it; the palette is a closed set (theme keys plus at most 255
+  gradient stops), so no eviction is needed. `TestStyleCellCachesOneStylePerColourKey`.
+- **One style grammar.** `ui.ParseCellStyle` is the only parser; the TUI and
+  `tools/screenshots/svg.go` both use it. `TestParseCellStyleSplitsColourAndModifiers`.
+- **Display width, not rune count.** `github.com/clipperhouse/displaywidth`
+  v0.11.0 moved from an indirect to a direct dependency (no version change).
+  `DisplayWidth` / `CutWidth` in `internal/ui/width.go` now back `fitRow`,
+  cuts, pads, frames, tab widths, process columns, bar reserves, the footer
+  and the SVG writer. Tests use CJK and emoji:
+  `TestDisplayWidthCountsTerminalCells`,
+  `TestCutWidthMarksACutWithinTheBudget`, `TestFitRowMeasuresDisplayCells`,
+  `TestPanelBoxKeepsItsWidthWithWideText`. The golden caught the real bug:
+  `49°C` is 4 cells but was reserved as 5 bytes, so each temperature bar was
+  one cell short.
+- **Sensor scroll affordance.** A cropped sensor body spends its last row on
+  `… N more` instead of silently dropping readings.
+  `TestTruncatedSensorsSayHowManyRowsAreHidden`,
+  `TestCompleteSensorsCarryNoScrollMarker`.
+- **Framed overlays.** Help, filter and kill are drawn by `PanelBox`; their
+  constants are outer widths. `TestOverlaysAreFramedLikeTheDashboard`.
+- **Tokenised status line.** `FooterPanel` emits one cell per fact with track
+  separators; the plain text is unchanged.
+  `TestFooterPanelSeparatesValuesFromSeparators`.
+- **Key-table parity.** `DefaultHelp` and `footerHints` are checked against
+  the canonical `KeyBindings`: every single binding is documented verbatim
+  (grouped entries name their members) and every footer key is real.
+  `TestDefaultHelpDocumentsEverySingleKeyBinding`,
+  `TestFooterHintsUseOnlyDocumentedKeys`.
+- **Refactors under green tests.** `graphBlock` builds `UtilisationRows` once
+  instead of twice; the dead `PoolRow` locals and the `padRight` byte-count
+  helper are gone.
+
+**Measured (2026-10-19, AMD Ryzen 9 5900X, in the dev container)**
+
+- `BenchmarkAppStyleCell` (cache hit): 1,261 ns/op, 121 B/op, 8 allocs/op.
+- `BenchmarkCellStyleConstruction` (the work avoided): 1,283 ns/op,
+  144 B/op, 10 allocs/op. The cache saves two allocations per coloured cell;
+  the repaint is dominated by lipgloss's render, not by style construction.
+  Recorded as measured rather than claimed as a large win.
+- `BenchmarkRenderRows` at 120x40: 495,046 ns/op, 116,309 B/op,
+  2,436 allocs/op.
+- `displaywidth` has no Context7 entry; its API was verified in the dev image
+  with `go doc -all github.com/clipperhouse/displaywidth` (`String`,
+  `TruncateString`, grapheme iterators). No other Context7 ID changed.
+
+**Decisions recorded, not changed**
+
+- **Process-table height stays one third of the free space** (the reference's
+  `1fr`). With few clients the frame pads with blank rows; making the height
+  data-dependent would reorder the screen as processes appear and disappear.
+- **`--no-color` keeps textual key separation** (`q quit`, `·` groups).
+  Bracketed or uppercased keys would change the golden and the README text
+  for a case nobody has asked for yet.
+- The sensor marker costs one reading at narrow heights. That is the honest
+  trade: a visible count of hidden rows beats a silent crop.
+
+**Verified**
+
+- `gofmt -l .` empty, `go vet` clean, `golangci-lint` **0 issues**,
+  `go test ./...` green (11 packages), `go build ./...` green.
+- `go mod tidy` leaves only the direct/indirect move of `displaywidth`.
+- `./scripts/podev.sh screenshots` regenerated all five SVGs. Diffs reviewed:
+  footer tokenisation in every screen, the framed help modal, and the narrow
+  screen's `… 9 more` sensor marker.
+- The 100x40 golden changed in exactly two rows: the `49°C` and `56°C`
+  temperature bars each gained one cell (value reserve corrected from bytes
+  to cells), and the value moved one cell left inside its unchanged panel.
+  The diff was read line by line before it was accepted.
 
 ---
 

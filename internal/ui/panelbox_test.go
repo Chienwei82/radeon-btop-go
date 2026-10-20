@@ -69,6 +69,30 @@ func TestPanelBoxPaintsBordersAndPreservesBodyColours(t *testing.T) {
 	}
 }
 
+// The frame has a transient colour seam for the alert flash: the border
+// alternates while the title keeps the theme accent, so the reading stays
+// legible in both phases.
+func TestPanelBoxBorderSeamKeepsTheTitleAccent(t *testing.T) {
+	th := DefaultTheme
+	th.Border = DefaultTheme.Alert
+	rows := PanelBox("GPU busy", []Row{{Cells: []Cell{{Text: "x"}}}}, 24, th)
+	if got := rows[0].Cells[0].Color; got != th.Border {
+		t.Fatalf("border colour = %q, want the seam %q", got, th.Border)
+	}
+	title := false
+	for _, c := range rows[0].Cells {
+		if c.Text == "GPU busy" {
+			title = true
+			if c.Color != th.Accent+"|bold" {
+				t.Fatalf("title colour = %q, want the accent", c.Color)
+			}
+		}
+	}
+	if !title {
+		t.Fatal("title missing from the top border")
+	}
+}
+
 // Title-less frames are still valid (a separator panel in a test, a waiting
 // panel before the first sample): they draw a plain rounded rule.
 func TestPanelBoxWithoutATitleIsStillAFrame(t *testing.T) {

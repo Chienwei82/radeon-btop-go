@@ -65,46 +65,49 @@ func PanelBox(title string, body []Row, width int, th Theme) []Row {
 // boxTop builds "╭─ title ─────╮", truncating the title rather than letting it
 // push the right corner off the line.
 func boxTop(title string, width int, th Theme) Row {
+	frame := th.frameColor()
 	title = strings.TrimSpace(title)
 	maxTitle := width - 6 // corners (2), "─ " (2), and a space either side (2)
 	if maxTitle < 1 {
 		title = ""
 	} else {
-		title = cutRunes(title, maxTitle)
+		title = CutWidth(title, maxTitle)
 	}
 	if title == "" {
 		return Row{Cells: []Cell{
-			{Text: boxTopLeft, Color: th.Accent},
-			{Text: strings.Repeat(boxHorizontal, width-2), Color: th.Accent},
-			{Text: boxTopRight, Color: th.Accent},
+			{Text: boxTopLeft, Color: frame},
+			{Text: strings.Repeat(boxHorizontal, width-2), Color: frame},
+			{Text: boxTopRight, Color: frame},
 		}}
 	}
-	fill := width - 5 - len([]rune(title))
+	fill := width - 5 - DisplayWidth(title)
 	return Row{Cells: []Cell{
-		{Text: boxTopLeft + boxHorizontal + " ", Color: th.Accent},
+		{Text: boxTopLeft + boxHorizontal + " ", Color: frame},
 		{Text: title, Color: th.Accent + "|bold"},
-		{Text: " ", Color: th.Accent},
-		{Text: strings.Repeat(boxHorizontal, fill), Color: th.Accent},
-		{Text: boxTopRight, Color: th.Accent},
+		{Text: " ", Color: frame},
+		{Text: strings.Repeat(boxHorizontal, fill), Color: frame},
+		{Text: boxTopRight, Color: frame},
 	}}
 }
 
 // boxBodyRow draws one bordered line: the frame's verticals and padding are
 // themed, the content keeps its own colour keys.
 func boxBodyRow(content Row, contentWidth int, th Theme) Row {
+	frame := th.frameColor()
 	content = padRowTo(content, contentWidth)
 	cells := make([]Cell, 0, len(content.Cells)+4)
-	cells = append(cells, Cell{Text: boxVertical, Color: th.Accent}, Cell{Text: " "})
+	cells = append(cells, Cell{Text: boxVertical, Color: frame}, Cell{Text: " "})
 	cells = append(cells, content.Cells...)
-	cells = append(cells, Cell{Text: " "}, Cell{Text: boxVertical, Color: th.Accent})
+	cells = append(cells, Cell{Text: " "}, Cell{Text: boxVertical, Color: frame})
 	return Row{Cells: cells}
 }
 
 // boxBottom is the frame's closing rule.
 func boxBottom(width int, th Theme) Row {
+	frame := th.frameColor()
 	return Row{Cells: []Cell{
-		{Text: boxBottomLeft, Color: th.Accent},
-		{Text: strings.Repeat(boxHorizontal, width-2), Color: th.Accent},
-		{Text: boxBottomRight, Color: th.Accent},
+		{Text: boxBottomLeft, Color: frame},
+		{Text: strings.Repeat(boxHorizontal, width-2), Color: frame},
+		{Text: boxBottomRight, Color: frame},
 	}}
 }
