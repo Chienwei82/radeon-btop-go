@@ -53,23 +53,32 @@ func DefaultHelp(signalHelp string, blocksNote ...string) []HelpEntry {
 	return entries
 }
 
+// HelpKeyColumn is the fixed width of the key column in the key reference.
+const HelpKeyColumn = 16
+
 // HelpOverlay renders the key reference: title, one line per entry with
 // the keys in a fixed column, and the way out.
+//
+// The key column is painted with the accent and bold while the description
+// stays in body text, so the eye can scan bindings without reading the prose.
 func HelpOverlay(entries []HelpEntry, th Theme) []Row {
 	out := []Row{{Cells: []Cell{{Text: "gputop keys", Color: th.Accent + "|bold"}}}}
 	for _, e := range entries {
-		text := padRunesRight(e.Keys, 16) + e.Description
 		// The note line has no keys and reads as prose, not as a binding.
-		color := ""
-		if e.Keys != "" {
-			color = th.Muted
+		if e.Keys == "" {
+			out = append(out, Row{Cells: []Cell{{Text: cutRunes(e.Description, HelpWidth), Color: th.Muted}}})
+			continue
 		}
-		out = append(out, Row{Cells: []Cell{{
-			Text:  cutRunes(text, HelpWidth),
-			Color: color,
-		}}})
+		keys := padRunesRight(e.Keys, HelpKeyColumn)
+		out = append(out, Row{Cells: []Cell{
+			{Text: keys, Color: th.Accent + "|bold"},
+			{Text: cutRunes(e.Description, HelpWidth-HelpKeyColumn), Color: th.Text},
+		}})
 	}
-	out = append(out, Row{Cells: []Cell{{Text: "esc close", Color: th.Muted}}})
+	out = append(out, Row{Cells: []Cell{
+		{Text: "esc", Color: th.Accent + "|bold"},
+		{Text: " close", Color: th.Muted},
+	}})
 	return out
 }
 
@@ -90,7 +99,11 @@ func KillConfirm(p model.GpuProcess, th Theme) []Row {
 	for _, line := range body {
 		out = append(out, Row{Cells: []Cell{{Text: cutRunes(line, KillWidth), Color: th.Text}}})
 	}
-	out = append(out, Row{Cells: []Cell{{Text: cutRunes("t SIGTERM  k SIGKILL  esc cancel", KillWidth), Color: th.Muted}}})
+	out = append(out, Row{Cells: []Cell{
+		{Text: "t", Color: th.Accent + "|bold"}, {Text: " SIGTERM  ", Color: th.Muted},
+		{Text: "k", Color: th.Accent + "|bold"}, {Text: " SIGKILL  ", Color: th.Muted},
+		{Text: "esc", Color: th.Accent + "|bold"}, {Text: " cancel", Color: th.Muted},
+	}})
 	return out
 }
 
@@ -106,7 +119,12 @@ func FilterPrompt(current string, th Theme) []Row {
 		{Cells: []Cell{{Text: "Filter processes", Color: th.Accent + "|bold"}}},
 		{Cells: []Cell{{Text: cutRunes(field, FilterWidth), Color: th.Text}}},
 		{Cells: []Cell{{Text: cutRunes("name, command, user or pid", FilterWidth), Color: th.Muted}}},
-		{Cells: []Cell{{Text: "enter apply  ·  esc clear", Color: th.Muted}}},
+		{Cells: []Cell{
+			{Text: "enter", Color: th.Accent + "|bold"},
+			{Text: " apply  ·  ", Color: th.Muted},
+			{Text: "esc", Color: th.Accent + "|bold"},
+			{Text: " clear", Color: th.Muted},
+		}},
 	}
 }
 

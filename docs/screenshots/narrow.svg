@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="574" height="495" viewBox="0 0 574 495" role="img">
+  <title>gputop in a 64-column terminal</title>
+  <rect width="100%" height="100%" fill="#0d1117"/>
+  <g font-family="'Fira Code','JetBrains Mono','DejaVu Sans Mono',monospace" font-size="14" xml:space="preserve">
+    <text x="18.00" y="32.00" fill="#e6e6e6" font-weight="bold">AMD Radeon RX 6800</text>
+    <text x="169.20" y="32.00" fill="#61afef">  dGPU</text>
+    <text x="219.60" y="32.00" fill="#e5c07b">  boot</text>
+    <text x="18.00" y="49.00" fill="#7f848e">amdgpu</text>
+    <text x="68.40" y="49.00" fill="#3a3f4b">  ·  </text>
+    <text x="110.40" y="49.00" fill="#7f848e">0000:0c:00.0</text>
+    <text x="211.20" y="49.00" fill="#3a3f4b">  ·  </text>
+    <text x="253.20" y="49.00" fill="#7f848e">0x73bf</text>
+    <text x="303.60" y="49.00" fill="#3a3f4b">  ·  </text>
+    <text x="345.60" y="49.00" fill="#7f848e">renderD128</text>
+    <text x="18.00" y="66.00" fill="#7f848e">up 1h 02m               </text>
+    <text x="219.60" y="66.00" fill="#7f848e">every 1s</text>
+    <text x="286.80" y="66.00" fill="#3a3f4b">  ·  </text>
+    <text x="328.80" y="66.00" fill="#4ec9b0">v1.3</text>
+    <text x="18.00" y="83.00" fill="#7f848e">[</text>
+    <rect x="26.40" y="70.00" width="25.20" height="15.00" fill="#e6e6e6"/>
+    <text x="26.40" y="83.00" fill="#0d1117"> 1 </text>
+    <text x="51.60" y="83.00" fill="#e6e6e6">] AMD Radeon RX 6800 dGPU </text>
+    <text x="270.00" y="83.00" fill="#61afef">███</text>
+    <text x="295.20" y="83.00" fill="#3a3f4b">░</text>
+    <text x="303.60" y="83.00" fill="#7f848e"> 78%</text>
+    <text x="337.20" y="83.00" fill="#61afef" font-weight="bold">◂</text>
+    <text x="345.60" y="83.00" fill="#3a3f4b"> │ </text>
+    <text x="370.80" y="83.00" fill="#7f848e">[</text>
+    <text x="379.20" y="83.00" fill="#7f848e"> 2 </text>
+    <text x="404.40" y="83.00" fill="#e6e6e6">] AMD Radeon Graph</text>
+    <text x="18.00" y="100.00" fill="#61afef">╭─ </text>
+    <text x="43.20" y="100.00" fill="#61afef" font-weight="bold">GPU busy</text>
+    <text x="110.40" y="100.00" fill="#61afef"> </text>
+    <text x="118.80" y="100.00" fill="#61afef">───────────────────────────────────────────────────</text>
+    <text x="547.20" y="100.00" fill="#61afef">╮</text>
+    <text x="18.00" y="117.00" fill="#61afef">│</text>
+    <text x="26.40" y="117.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="117.00" fill="#e6e6e6">⢀⣀⣀⣀⣤⣤⣤⣤⣤⣴⣶⣶⣶⣶⣦⣤⣤⣤⣤⣤⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀</text>
+    <text x="538.80" y="117.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="117.00" fill="#61afef">│</text>
+    <text x="18.00" y="134.00" fill="#61afef">│</text>
+    <text x="26.40" y="134.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="134.00" fill="#e6e6e6">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣶⣤⡄⣤⣀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣠⣤⣤⣴⣶</text>
+    <text x="538.80" y="134.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="134.00" fill="#61afef">│</text>
+    <text x="18.00" y="151.00" fill="#61afef">│</text>
+    <text x="26.40" y="151.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="151.00" fill="#e6e6e6">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣶⣶⣶⣶⣶⣶⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</text>
+    <text x="538.80" y="151.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="151.00" fill="#61afef">│</text>
+    <text x="18.00" y="168.00" fill="#61afef">│</text>
+    <text x="26.40" y="168.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="168.00" fill="#e6e6e6">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</text>
+    <text x="538.80" y="168.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="168.00" fill="#61afef">│</text>
+    <text x="18.00" y="185.00" fill="#61afef">│</text>
+    <text x="26.40" y="185.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="185.00" fill="#e6e6e6">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</text>
+    <text x="538.80" y="185.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="185.00" fill="#61afef">│</text>
+    <text x="18.00" y="202.00" fill="#61afef">│</text>
+    <text x="26.40" y="202.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="202.00" fill="#e6e6e6">⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿</text>
+    <text x="538.80" y="202.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="202.00" fill="#61afef">│</text>
+    <text x="18.00" y="219.00" fill="#61afef">│</text>
+    <text x="26.40" y="219.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="219.00" fill="#7f848e">GPU           </text>
+    <text x="152.40" y="219.00" fill="#ffaf87">████████████████████████████████</text>
+    <text x="421.20" y="219.00" fill="#3a3f4b">░░░░░░░░░</text>
+    <text x="496.80" y="219.00" fill="#e6e6e6"> 78%</text>
+    <text x="530.40" y="219.00" fill="#e6e6e6"> </text>
+    <text x="538.80" y="219.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="219.00" fill="#61afef">│</text>
+    <text x="18.00" y="236.00" fill="#61afef">│</text>
+    <text x="26.40" y="236.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="236.00" fill="#7f848e">VRAM          </text>
+    <text x="152.40" y="236.00" fill="#d7d7af">████████████</text>
+    <text x="253.20" y="236.00" fill="#3a3f4b">░░░░░░░░</text>
+    <text x="320.40" y="236.00" fill="#e6e6e6"> 9.6 GiB / 16.0 GiB (60%)</text>
+    <text x="530.40" y="236.00" fill="#e6e6e6"> </text>
+    <text x="538.80" y="236.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="236.00" fill="#61afef">│</text>
+    <text x="18.00" y="253.00" fill="#61afef">│</text>
+    <text x="26.40" y="253.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="253.00" fill="#e6e6e6">                                                            </text>
+    <text x="538.80" y="253.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="253.00" fill="#61afef">│</text>
+    <text x="18.00" y="270.00" fill="#61afef">│</text>
+    <text x="26.40" y="270.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="270.00" fill="#e6e6e6">                                                            </text>
+    <text x="538.80" y="270.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="270.00" fill="#61afef">│</text>
+    <text x="18.00" y="287.00" fill="#61afef">│</text>
+    <text x="26.40" y="287.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="287.00" fill="#e6e6e6">                                                            </text>
+    <text x="538.80" y="287.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="287.00" fill="#61afef">│</text>
+    <text x="18.00" y="304.00" fill="#61afef">│</text>
+    <text x="26.40" y="304.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="304.00" fill="#e6e6e6">                                                            </text>
+    <text x="538.80" y="304.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="304.00" fill="#61afef">│</text>
+    <text x="18.00" y="321.00" fill="#61afef">╰</text>
+    <text x="26.40" y="321.00" fill="#61afef">──────────────────────────────────────────────────────────────</text>
+    <text x="547.20" y="321.00" fill="#61afef">╯</text>
+    <text x="18.00" y="338.00" fill="#61afef">╭─ </text>
+    <text x="43.20" y="338.00" fill="#61afef" font-weight="bold">Sensors</text>
+    <text x="102.00" y="338.00" fill="#61afef"> </text>
+    <text x="110.40" y="338.00" fill="#61afef">────────────────────────────────────────────────────</text>
+    <text x="547.20" y="338.00" fill="#61afef">╮</text>
+    <text x="18.00" y="355.00" fill="#61afef">│</text>
+    <text x="26.40" y="355.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="355.00" fill="#7f848e">Core          </text>
+    <text x="152.40" y="355.00" fill="#ff8787">█████████████████████████████████</text>
+    <text x="429.60" y="355.00" fill="#3a3f4b">░░</text>
+    <text x="446.40" y="355.00" fill="#e6e6e6"> 2,310 MHz</text>
+    <text x="530.40" y="355.00" fill="#e6e6e6"> </text>
+    <text x="538.80" y="355.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="355.00" fill="#61afef">│</text>
+    <text x="18.00" y="372.00" fill="#61afef">│</text>
+    <text x="26.40" y="372.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="372.00" fill="#7f848e">Memory        </text>
+    <text x="152.40" y="372.00" fill="#ff8787">███████████████████████████████████</text>
+    <text x="446.40" y="372.00" fill="#e6e6e6"> 1,000 MHz</text>
+    <text x="530.40" y="372.00" fill="#e6e6e6"> </text>
+    <text x="538.80" y="372.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="372.00" fill="#61afef">│</text>
+    <text x="18.00" y="389.00" fill="#61afef">│</text>
+    <text x="26.40" y="389.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="389.00" fill="#7f848e">SoC           </text>
+    <text x="152.40" y="389.00" fill="#d7afaf">████████████████████████████</text>
+    <text x="387.60" y="389.00" fill="#3a3f4b">░░░░░░░░░</text>
+    <text x="463.20" y="389.00" fill="#e6e6e6"> 900 MHz</text>
+    <text x="530.40" y="389.00" fill="#e6e6e6"> </text>
+    <text x="538.80" y="389.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="389.00" fill="#61afef">│</text>
+    <text x="18.00" y="406.00" fill="#61afef">│</text>
+    <text x="26.40" y="406.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="406.00" fill="#7f848e">temp edge     </text>
+    <text x="152.40" y="406.00" fill="#d7d7af">███████████████████</text>
+    <text x="312.00" y="406.00" fill="#3a3f4b">░░░░░░░░░░░░░░░░░░░░</text>
+    <text x="480.00" y="406.00" fill="#e6e6e6"> 61°C</text>
+    <text x="522.00" y="406.00" fill="#e6e6e6">  </text>
+    <text x="538.80" y="406.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="406.00" fill="#61afef">│</text>
+    <text x="18.00" y="423.00" fill="#61afef">│</text>
+    <text x="26.40" y="423.00" fill="#e6e6e6"> </text>
+    <text x="34.80" y="423.00" fill="#7f848e">temp junction </text>
+    <text x="152.40" y="423.00" fill="#d7d7af">███████████████████████</text>
+    <text x="345.60" y="423.00" fill="#3a3f4b">░░░░░░░░░░░░░░░░</text>
+    <text x="480.00" y="423.00" fill="#e6e6e6"> 74°C</text>
+    <text x="522.00" y="423.00" fill="#e6e6e6">  </text>
+    <text x="538.80" y="423.00" fill="#e6e6e6"> </text>
+    <text x="547.20" y="423.00" fill="#61afef">│</text>
+    <text x="18.00" y="440.00" fill="#61afef">╰</text>
+    <text x="26.40" y="440.00" fill="#61afef">──────────────────────────────────────────────────────────────</text>
+    <text x="547.20" y="440.00" fill="#61afef">╯</text>
+    <text x="18.00" y="457.00" fill="#7f848e">#120  ·  metrics v1.3  ·  tick 1000 ms  ·  cpu N/A</text>
+    <text x="18.00" y="474.00" fill="#61afef" font-weight="bold">q</text>
+    <text x="26.40" y="474.00" fill="#7f848e"> quit</text>
+    <text x="68.40" y="474.00" fill="#3a3f4b"> · </text>
+    <text x="93.60" y="474.00" fill="#61afef" font-weight="bold">1-9/tab</text>
+    <text x="152.40" y="474.00" fill="#7f848e"> GPU</text>
+    <text x="186.00" y="474.00" fill="#3a3f4b"> · </text>
+    <text x="211.20" y="474.00" fill="#61afef" font-weight="bold">o</text>
+    <text x="219.60" y="474.00" fill="#7f848e"> overview</text>
+    <text x="295.20" y="474.00" fill="#3a3f4b"> · </text>
+    <text x="320.40" y="474.00" fill="#61afef" font-weight="bold">m</text>
+    <text x="328.80" y="474.00" fill="#7f848e"> theme</text>
+    <text x="379.20" y="474.00" fill="#3a3f4b"> · </text>
+    <text x="404.40" y="474.00" fill="#61afef" font-weight="bold">+-</text>
+    <text x="421.20" y="474.00" fill="#7f848e"> interval</text>
+  </g>
+</svg>

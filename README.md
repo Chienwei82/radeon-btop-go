@@ -15,10 +15,13 @@ and `/proc/<pid>/fdinfo/`, all of them readable by an ordinary user. There is
 no daemon, no setuid helper, and no write path at all: the power-profile and
 overdrive tables are displayed, never set.
 
+![gputop showing an AMD Radeon RX 6800 under load](docs/screenshots/main.svg)
+
 ---
 
 ## Contents
 
+- [Screenshots](#screenshots)
 - [Install](#install)
 - [Supported hardware](#supported-hardware)
 - [What each panel shows](#what-each-panel-shows)
@@ -29,6 +32,25 @@ overdrive tables are displayed, never set.
 - [What it reads](#what-it-reads)
 - [Cost: CPU and memory](#cost-cpu-and-memory)
 - [Development](#development)
+- [Deployment](docs/DEPLOY.md)
+- [Development with podman](docs/DEVELOPMENT.md)
+
+---
+
+## Screenshots
+
+The images are generated from the same pure screen function the TUI uses, over
+a deterministic synthetic machine; regenerate them with
+`./scripts/podev.sh screenshots` (see
+[Development with podman](docs/DEVELOPMENT.md#screenshots)).
+
+| Process tree (`t`) | Multi-GPU overview (`o`) |
+|---|---|
+| ![gputop process tree with per-engine GPU time](docs/screenshots/process-tree.svg) | ![gputop overview of a discrete GPU and an APU](docs/screenshots/multi-gpu.svg) |
+
+| 64-column terminal | Key reference (`h`) |
+|---|---|
+| ![gputop in a 64-column terminal](docs/screenshots/narrow.svg) | ![gputop key reference](docs/screenshots/help.svg) |
 
 ---
 
@@ -40,7 +62,8 @@ gputop-go ships as a **single static binary**. No interpreter, no runtime.
 
 Download `gputop-<version>-linux-<arch>.tar.gz` and its `.sha256`, verify the
 checksum, extract it and put `gputop` on `$PATH`. The archive also carries the
-man page, the three completions, the example configuration and the licences.
+man page, the three completions, the example configuration, the README with its
+screenshots, the living docs and the licences.
 
 The same artifact is built from source with podman only:
 
@@ -53,10 +76,12 @@ binary out of the distroless image, and writes
 `dist/gputop-<version>-linux-<arch>.tar.gz` plus a `.sha256`. The host needs
 no Go toolchain and nothing is installed outside `dist/`.
 
+For checksum verification, install paths, the Arch recipe, the container
+mounts and uninstall steps, see [Deploying gputop](docs/DEPLOY.md).
+
 ### Arch Linux
 
-A `PKGBUILD` ships with the source, in
-[packaging/arch/PKGBUILD](packaging/arch/PKGBUILD):
+A `PKGBUILD` ships with the source, in `packaging/arch/PKGBUILD`:
 
 ```bash
 cd packaging/arch
@@ -66,6 +91,23 @@ makepkg -si          # -s installs build dependencies, -i installs the result
 It installs the `gputop(1)` man page, the bash, zsh and fish completions and
 the licence files. The recipe builds through podman, so `podman` is the build
 dependency — not a Go toolchain.
+
+### Container image
+
+The `release` stage is a distroless image with `/gputop` as its entrypoint:
+
+```bash
+podman build --target release -t gputop:1.0.0 .
+podman run --rm -it --security-opt label=disable --pid=host \
+  -v /sys:/sys:ro -v /proc:/proc:ro -v /dev/dri:/dev/dri:ro \
+  gputop:1.0.0
+```
+
+The host's kernel interfaces are mounted read-only; `--pid=host` is what makes
+the process table see host processes. A rootless container cannot read other
+users' `fdinfo`, so the process table may be partial — `--check` says so. See
+[Deploying gputop](docs/DEPLOY.md#option-3--container-image) for the measured
+caveat and the headless check command.
 
 ---
 
@@ -106,7 +148,9 @@ What differs by generation, and what `--check` tells you on your machine:
 
 Nine panels, laid out to survive a narrow or short terminal (stack below 72
 columns; process table yields below 20 rows; memory graphs hidden below 28;
-the utilisation graph is never dropped).
+the utilisation graph is never dropped). Panels are drawn as rounded frames,
+the graph/sensor split and the VRAM/GTT pair are explicit columns, and the key
+hints paint each key apart from its label.
 
 - **Devices** — every `amdgpu` card, discrete first. `tab` / `shift+tab`
   switch, `1`–`9` jump, `o` shows every GPU at once.
@@ -159,7 +203,8 @@ scripts can distinguish "no hardware" from "gputop is broken".
 - `--check [--json]` — the diagnostic report above.
 - `--version` — print the version and exit.
 
-and offers `radeontop` as an optional dependency for the per-block panel.
+The optional per-block panel starts `radeontop` when it is installed;
+`--check` reports whether it is present.
 
 ### From a checkout (podman only — the host needs no Go toolchain)
 
@@ -268,15 +313,25 @@ a 10-second run shows the footprint, not multi-day flatness.
 The host needs nothing but podman. All Go work runs in the container:
 
 ```bash
+./scripts/podev.sh image   # (re)build the dev image (first run / after Containerfile changes)
 ./scripts/podev.sh build   # compile ./gputop
 ./scripts/podev.sh test    # go test ./...
 ./scripts/podev.sh vet     # go vet ./...
 ./scripts/podev.sh lint    # golangci-lint run ./... (set pinned in .golangci.yml)
 ./scripts/podev.sh fmt     # gofmt -l . (empty output == clean)
 ./scripts/podev.sh shell   # interactive shell in the dev image
+./scripts/podev.sh run     # TUI in podman with the host's /sys, /proc, /dev/dri (read-only)
+./scripts/podev.sh screenshots  # regenerate docs/screenshots/*.svg
 ./scripts/check_packaging.sh  # man/completions/version agree with the CLI
 ./scripts/release.sh       # static binary + tarball + sha256 under dist/
 ```
+
+`build` writes `./gputop` into the checkout; run that binary directly when you
+want the complete per-process table. `run` shares the host kernel interfaces
+with the container, but a rootless user namespace hides other users' `fdinfo`
+entries, so the table can be partial there — `--check` reports exactly that.
+The full workflow, mounts, cache volumes and troubleshooting table are in
+[Development with podman](docs/DEVELOPMENT.md).
 
 The headless data path is covered by a **parity gate**: `internal/cli/parity_test.go`
 replays the reference's `--dump` over a committed synthetic sysfs/procfs tree

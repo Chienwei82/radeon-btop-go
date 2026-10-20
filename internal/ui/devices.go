@@ -154,9 +154,16 @@ func GPUTabs(devices []model.AmdgpuMetrics, th Theme, index, available int) Row 
 
 // OverviewPanel draws one card per device: name, utilisation bar, memory
 // and temperature. The focused card carries the marker.
+//
+// Cards are separated by a rule rather than a frame: the overview is a list
+// of devices, and a horizontal divider marks where one card ends without
+// spending two rows per device on a border.
 func OverviewPanel(devices []model.AmdgpuMetrics, th Theme, available, index int, gradient *Gradient) []Row {
 	var rows []Row
-	for _, m := range devices {
+	for i, m := range devices {
+		if i > 0 && available > 0 {
+			rows = append(rows, Row{Cells: []Cell{{Text: strings.Repeat("─", available), Color: th.Track}}})
+		}
 		marker := "  "
 		if m.Device.Index == index {
 			marker = "▶ "

@@ -164,9 +164,23 @@ ambiguous); `-i` is whole seconds (`atoi`).
 (responsive breakpoints 72/20/28), snapshot messages, and flash-timer
 messages. `View` calls the pure `RenderScreen` and then resolves each cell's
 theme key to lipgloss once per frame; with `--no-color` it emits the plain
-rows, which are also what the goldens read. The cell model is the reason the
-screen needs no borders or layout engine: rows are already composed at the
-exact terminal width.
+rows, which are also what the goldens read. The cell model keeps the screen a
+pure row composition rather than a layout engine: panel frames are drawn
+inside that model by `PanelBox`, so the divisions are golden-testable and
+every row is still composed at the exact terminal width. A frame is exactly
+the width it was given, and bodies on a shared row are padded to one baseline
+(`padBody`), so two panels close their bottom borders on the same line.
+
+Cell colour keys are a hex value plus optional `|bold` / `|reverse`
+attributes. Both are real style modifiers (`parseCellStyle`), which matters
+for the active GPU badge: before the parser existed, `#e6e6e6|reverse` was
+handed to lipgloss as a colour and the badge silently lost its highlight.
+
+Key hints use the same split at the row level: `footerHints` paints the key
+with the accent and bold, the label stays muted, and the groups are separated
+by `·`. The key reference uses the same treatment in a fixed 16-cell column,
+so a key never reads as part of its description. `--no-color` keeps the text
+separation ("q quit"), which is why the hint line is not a single styled run.
 
 Process table: the pure `procview` logic (sort, filter, tree, idle-hiding,
 selection by identity, top-marker `▶`) feeds `RenderTable`; bubbles' table
@@ -239,7 +253,16 @@ is pinned by a test rather than discovered on a terminal:
 - The graphs are never what gets dropped. On a short terminal the process
   table yields first (`ShortHeight = 20`); on a narrow one (`NarrowWidth =
   72`) the sensors move *under* the graphs instead of squeezing them away.
-- Memory graphs appear from `MinHeightForMemoryGraphs = 28`.
+  The stacked graph takes two thirds of the height and the sensor frame gets
+  the rest, rather than the old title-only strip.
+- The wide detail row is the reference's 2:1 split with the sensor column
+  held at `max(40, width/3)`: a bar row needs forty columns before its bar is
+  too short to read, and the graph spends what is left.
+- Memory graphs appear from `MinHeightForMemoryGraphs = 28`, and only when
+  the graph column is at least 40 cells wide. VRAM and GTT are two framed
+  panels on one row, matching the reference; stacking them spent a title row
+  per graph and left half the screen empty. Each honours the same 28-row
+  floor, so a short terminal drops the whole pair rather than half of it.
 - The optional row (per-block utilisation beside the power profile) has one
   threshold for both panels: `MinHeightForOptionalRow = 38 + 8 = 46`. The
   cost is not the row's height but what it takes from the sensor panel beside
@@ -249,10 +272,13 @@ is pinned by a test rather than discovered on a terminal:
 - A panel with nothing to say is not drawn at all: `optionalRow` returns
   `nil` when both the block sample and the SCPP tables are absent, and `nil`
   is what leaves the main row every line it had. The row is cropped to the
-  eight lines the reference measured it at rather than allowed to grow.
-- Below `2 * MinOptionalPanelWidth + 1` columns the two optional panels stack
-  instead of sharing a row, because a panel narrower than its own label
-  column produces a bar of no useful length.
+  eight lines the reference measured it at rather than allowed to grow, and
+  both framed bodies are padded to the same six-line baseline.
+- Below `2 * (MinOptionalPanelWidth + boxOverheadX) + 1` columns the two
+  optional panels no longer stack (stacking made the profile invisible once
+  the eight-line crop applied). The blocks panel is shown alone: the active
+  profile is already named on the sensors panel, while per-block utilisation
+  appears nowhere else.
 - The alert notice goes last on the status line, so a narrow terminal takes
   the width from the notice rather than from the facts.
 

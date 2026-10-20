@@ -417,6 +417,44 @@ runs and the v1 tag.
 
 ---
 
+## Post-v1 visual pass (2026-10-19)
+
+The interface read as loose text: panel titles were plain rows, the graph and
+sensor columns had no drawn boundary, VRAM and GTT were half-width graphs
+stacked vertically (leaving the right half of the screen empty), the active GPU
+badge lost its reverse-video highlight, and the key hints were one muted run.
+
+**Changed**
+
+- Panels are rounded accent frames with the title in the top border
+  (`ui.PanelBox`), drawn inside the pure row model so the divisions are
+  golden-tested. Two frames on one row are padded to the same baseline.
+- The wide detail row is the reference's 2:1 split with the sensor column at
+  `max(40, width/3)`; VRAM and GTT are two framed panels on one row.
+- On a narrow terminal the graph gets two thirds of the height and the sensors
+  get a real body. The process frame absorbs its allocation and the status/key
+  lines are anchored to the bottom.
+- Key hints and the key reference paint the key in the accent and bold, the
+  label muted; filter/kill prompts follow the same rule. `|bold` and `|reverse`
+  are parsed as style modifiers (the active badge highlight works again).
+- The multi-GPU overview separates device cards with a dim rule.
+
+**Verified**
+
+- `gofmt -l .` empty, `go vet` clean, `golangci-lint` 0 issues,
+  `go test ./...` green (11 packages). No new dependencies.
+- The 100x40 golden was regenerated inside the container and the diff read
+  line by line (frames, 2:1 split, side-by-side memory panels, padded process
+  frame, footer on rows 39–40). The 60–200 column and 8-height sweeps stay
+  green.
+- All five `docs/screenshots/*.svg` regenerated through `ui.RenderScreen`; a
+  live pty run reached the framed TUI and quit cleanly.
+- Deferred code work (alert border flash, style cache, display-width helper,
+  dead code, shared style parser, scroll affordance) is queued in the agent
+  memory bank, not silently dropped.
+
+---
+
 ## Notes for future milestones
 
 - Keep editor payloads < 6000 chars per call; use heredocs/`cat >>` for docs.

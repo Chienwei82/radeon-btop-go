@@ -61,6 +61,16 @@ chmod 0755 "${STAGE}/gputop"
 
 cp "${REPO_ROOT}/README.md" "${REPO_ROOT}/LICENSE" "${REPO_ROOT}/NOTICE" \
     "${REPO_ROOT}/gputop.example.yaml" "${STAGE}/"
+# The living docs the README links to. They are part of the artifact so a
+# reader of the tarball can verify the claims without cloning the source.
+cp "${REPO_ROOT}/SPEC.md" "${REPO_ROOT}/DESIGN.md" "${REPO_ROOT}/PROGRESS.md" \
+    "${STAGE}/"
+# A git archive of a pre-docs tag has no docs/; include it when present so the
+# README's screenshots and links resolve in the artifact.
+if [ -d "${REPO_ROOT}/docs" ]; then
+    mkdir -p "${STAGE}/docs"
+    cp -R "${REPO_ROOT}/docs/." "${STAGE}/docs/"
+fi
 cp "${REPO_ROOT}/packaging/man/gputop.1" "${STAGE}/packaging/man/"
 cp "${REPO_ROOT}/packaging/completions/"* "${STAGE}/packaging/completions/"
 

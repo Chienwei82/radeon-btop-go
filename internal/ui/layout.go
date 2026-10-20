@@ -114,7 +114,21 @@ func RenderScreen(in LayoutInput) []Row {
 	}
 
 	if tableLines > 0 && device != nil {
+		// The detail block may have used more rows than it was offered (the
+		// graphs grow by a row at a time), so the table must yield rather than
+		// push the status line and key hints off the bottom of the terminal.
+		if available := height - len(out) - footerLines; tableLines > available {
+			tableLines = max(0, available)
+		}
 		out = append(out, processBlock(in, th, tableLines, width)...)
+	}
+
+	// Keep the diagnostics and the key hints on the bottom edge. A short
+	// overview (or a terminal whose panels need fewer rows than they were
+	// offered) would otherwise leave them floating in the middle with the
+	// rest of the alternate screen untouched above them.
+	for len(out) < height-footerLines {
+		out = append(out, Row{})
 	}
 
 	out = append(out, fitRow(statusLine(in, th), width))
@@ -137,28 +151,37 @@ func optionalRow(device *model.AmdgpuMetrics, in LayoutInput, th Theme, rest, wi
 	if rest-optionalRowLines < minLinesForMainRow {
 		return nil
 	}
-	blocks := BlocksPanel(device.Blocks, th, width, nil)
-	profile := PowerProfilePanel(*device, th, width, nil)
 	hasProfile := device.Profiles.Present || device.ODC.Present
 	if device.Blocks == nil && !hasProfile {
 		return nil
 	}
+	bodyLines := optionalRowLines - boxOverheadY
+
+	// A single panel still fills the row: a framed box beside an empty
+	// column would look like a rendering bug.
 	if device.Blocks == nil {
-		return crop(append([]Row{titleRow("Power profile", th)}, profile...), optionalRowLines, width)
+		body := padBody(crop(PowerProfilePanel(*device, th, width-boxOverheadX, nil), bodyLines, width-boxOverheadX), bodyLines)
+		return PanelBox("Power profile", body, width, th)
 	}
 	if !hasProfile {
-		return crop(append([]Row{titleRow(BlocksHeading(device.Blocks), th)}, blocks...), optionalRowLines, width)
+		body := padBody(crop(BlocksPanel(device.Blocks, th, width-boxOverheadX, nil), bodyLines, width-boxOverheadX), bodyLines)
+		return PanelBox(BlocksHeading(device.Blocks), body, width, th)
 	}
-	if width < 2*MinOptionalPanelWidth+1 {
-		// Too narrow for two columns: stack them rather than squeeze the bars
-		// below the length at which they say anything.
-		return crop(append(blocks, profile...), optionalRowLines, width)
+	if width < 2*(MinOptionalPanelWidth+boxOverheadX)+1 {
+		// Too narrow for two framed panels: a split would put each bar below
+		// the length at which it says anything. Blocks wins when both exist;
+		// the active profile is already named on the sensors panel, whereas
+		// per-block utilisation appears nowhere else.
+		body := padBody(crop(BlocksPanel(device.Blocks, th, width-boxOverheadX, nil), bodyLines, width-boxOverheadX), bodyLines)
+		return PanelBox(BlocksHeading(device.Blocks), body, width, th)
 	}
 	left := (width - 1) / 2
 	right := width - left - 1
-	leftRows := append([]Row{titleRow(BlocksHeading(device.Blocks), th)}, blocks...)
-	rightRows := append([]Row{titleRow("Power profile", th)}, profile...)
-	return crop(joinColumns(leftRows, rightRows, left, right, 1), optionalRowLines, width)
+	leftBody := padBody(crop(BlocksPanel(device.Blocks, th, left-boxOverheadX, nil), bodyLines, left-boxOverheadX), bodyLines)
+	rightBody := padBody(crop(PowerProfilePanel(*device, th, right-boxOverheadX, nil), bodyLines, right-boxOverheadX), bodyLines)
+	leftBox := PanelBox(BlocksHeading(device.Blocks), leftBody, left, th)
+	rightBox := PanelBox("Power profile", rightBody, right, th)
+	return joinColumns(leftBox, rightBox, left, right, 1)
 }
 
 // MinOptionalPanelWidth is the narrowest an optional panel is laid out at:
@@ -178,45 +201,79 @@ func crop(rows []Row, lines, width int) []Row {
 	return out
 }
 
+// padBody makes a panel body exactly lines rows: short bodies get blank rows,
+// long ones are cut. Two frames sharing a row must be the same height, or the
+// shorter one's bottom border floats above its sibling's and the division
+// stops looking deliberate.
+func padBody(rows []Row, lines int) []Row {
+	if lines <= 0 {
+		return nil
+	}
+	if len(rows) > lines {
+		return rows[:lines]
+	}
+	for len(rows) < lines {
+		rows = append(rows, Row{})
+	}
+	return rows
+}
+
 // detailColumns is the graphs column plus the sensors column: side by side
-// on a wide terminal, stacked on a narrow one.
+// on a wide terminal, stacked on a narrow one. Both are framed, so the split
+// between them is a drawn boundary rather than a guess about spacing.
+//
+// The wide split is the reference's 2:1, with the sensor column held at no
+// less than forty columns: a run of "label bar value" rows needs that much
+// before the bar is too short to read, and the graph can spend the rest.
 func detailColumns(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, width int) []Row {
-	narrow := width < NarrowWidth
-	graphW := width
-	sensorW := width
-	if !narrow {
-		graphW = width / 2
-		sensorW = width - graphW - 1
+	if width < NarrowWidth {
+		graphLines := lines
+		if lines >= 12 {
+			// Give the sensors a real box instead of the title-only strip
+			// the old stack degenerated into; two thirds keeps the series
+			// legible while the sensors still get a body.
+			graphLines = min(lines, max(8, lines*2/3))
+		}
+		graph := PanelBox("GPU busy", graphBlock(device, in, th, graphLines-boxOverheadY, width-boxOverheadX), width, th)
+		remaining := lines - len(graph)
+		if remaining < boxOverheadY+1 {
+			return graph
+		}
+		sensors := PanelBox("Sensors", sensorBlock(device, th, remaining-boxOverheadY, width-boxOverheadX), width, th)
+		return append(graph, sensors...)
 	}
 
-	graphs := graphBlock(device, in, th, lines, graphW)
-	if narrow {
-		used := len(graphs)
-		sensors := sensorBlock(device, th, max(0, lines-used), sensorW)
-		return append(graphs, sensors...)
-	}
-	return joinColumns(graphs, sensorBlock(device, th, lines, sensorW), graphW, sensorW, 1)
+	sensorW := max(40, width/3)
+	graphW := width - sensorW - 1
+	graph := PanelBox("GPU busy", graphBlock(device, in, th, lines-boxOverheadY, graphW-boxOverheadX), graphW, th)
+	sensors := PanelBox("Sensors", sensorBlock(device, th, lines-boxOverheadY, sensorW-boxOverheadX), sensorW, th)
+	return joinColumns(graph, sensors, graphW, sensorW, 1)
 }
 
 // graphBlock is the utilisation graph with its readout, and the memory
-// graphs below them once the terminal is tall enough to draw them.
+// graphs below them once the terminal is tall and wide enough to draw them.
+//
+// lines is the space inside the GPU-busy frame. The memory pair is two framed
+// panels on one row, not two half-width graphs stacked: stacking them spent a
+// row per graph on a title and left the right half of the screen empty.
 func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, width int) []Row {
-	out := []Row{titleRow("GPU busy", th)}
+	if lines <= 0 {
+		return nil
+	}
 	readout := 1
 	if device != nil {
-		grad := NewGradient(th, false)
-		readout = len(UtilisationRows(*device, th, width, &grad))
+		readout = min(lines, len(UtilisationRows(*device, th, width, nil)))
 	}
-	memory := in.Height >= MinHeightForMemoryGraphs
-	overhead := 1 + readout // graph title + readout rows
+	memory := in.Height >= MinHeightForMemoryGraphs && width >= 40 && lines-readout >= 4
+	overhead := readout
 	if memory {
-		overhead += 2 // VRAM and GTT titles
+		overhead += boxOverheadY
 	}
-	graphCells := max(2, lines-overhead)
+	graphCells := max(1, lines-overhead)
 	utilH := max(1, graphCells*2/3)
 	memH := max(1, graphCells-utilH)
 
-	out = append(out, graphRows(busySeries(in.History, deviceIndex(device)), utilH, width)...)
+	out := graphRows(busySeries(in.History, deviceIndex(device)), utilH, width)
 	if device != nil {
 		grad := NewGradient(th, false)
 		for _, r := range UtilisationRows(*device, th, width, &grad) {
@@ -225,53 +282,75 @@ func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, wi
 	}
 	if memory {
 		half := (width - 1) / 2
-		out = append(out, titleRow("VRAM", th))
-		out = append(out, graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.VRAM }), memH, half)...)
-		out = append(out, titleRow("GTT", th))
-		out = append(out, graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.GTT }), memH, width-half-1)...)
+		other := width - half - 1
+		vram := PanelBox("VRAM", graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.VRAM }), memH, half-boxOverheadX), half, th)
+		gtt := PanelBox("GTT", graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.GTT }), memH, other-boxOverheadX), other, th)
+		out = append(out, joinColumns(vram, gtt, half, other, 1)...)
 	}
-	return out
+
+	// The frame above expects exactly the space it was offered: a short body
+	// would put the bottom border too high, and a long one would push the
+	// process table off the screen.
+	return padBody(crop(out, lines, width), lines)
 }
 
-// sensorBlock is the sensors title plus its rows, truncated to the space
-// it was given: on a short terminal the bottom sensors scroll away rather
-// than pushing the graphs off the screen.
+// sensorBlock is the sensors body, truncated to the space it was given: on a
+// short terminal the bottom sensors scroll away rather than pushing the
+// graphs off the screen. The frame and title are added by the caller, so a
+// short body is padded with blank rows and the bottom border still lines up
+// with the graph panel beside it.
 func sensorBlock(device *model.AmdgpuMetrics, th Theme, lines, width int) []Row {
-	out := []Row{titleRow("Sensors", th)}
-	if device == nil || lines <= 1 {
-		return out
+	if lines <= 0 {
+		return nil
 	}
-	grad := NewGradient(th, false)
-	rows := SensorsPanel(*device, th, width, &grad)
-	for _, r := range rows {
-		if len(out) >= lines {
-			break
+	out := make([]Row, 0, lines)
+	if device != nil {
+		grad := NewGradient(th, false)
+		for _, r := range SensorsPanel(*device, th, width, &grad) {
+			if len(out) >= lines {
+				break
+			}
+			out = append(out, fitRow(r, width))
 		}
-		out = append(out, fitRow(r, width))
+	}
+	for len(out) < lines {
+		out = append(out, fitRow(Row{}, width))
 	}
 	return out
 }
 
-// processBlock is the process panel title plus the table itself.
+// processBlock is the framed process panel: the sort/filter line, the column
+// heading and the table itself.
 func processBlock(in LayoutInput, th Theme, lines, width int) []Row {
+	if lines <= 0 {
+		return nil
+	}
+	contentWidth := width - boxOverheadX
 	rows := BuildRows(in.Snapshot.Processes, in.View.Sort, in.View.Filter, in.View.Tree)
 	top := BusiestProcesses(in.Snapshot.Processes, in.View.Sort)
 	title := PanelTitle(in.View.Sort, in.View.Filter, len(rows), in.Snapshot.TotalProcessCount, top, in.View.Tree)
-	out := []Row{fitRow(titleRow(title, th), width)}
-	if lines <= 1 {
-		return out
+
+	body := make([]Row, 0, max(0, lines-boxOverheadY))
+	if lines > boxOverheadY {
+		body = append(body, Row{Cells: []Cell{{Text: cutRunes(title, contentWidth), Color: th.Muted}}})
 	}
-	sel := in.View.Selected
-	table := RenderTable(rows, in.View.Sort, TableConfig{
-		Width: width, FullCommand: in.View.FullCommand, Selected: sel, Top: top, Theme: th,
-	})
-	for _, r := range table {
-		if len(out) >= lines {
-			break
+	if len(body) < lines-boxOverheadY {
+		sel := in.View.Selected
+		table := RenderTable(rows, in.View.Sort, TableConfig{
+			Width: contentWidth, FullCommand: in.View.FullCommand, Selected: sel, Top: top, Theme: th,
+		})
+		for _, r := range table {
+			if len(body) >= lines-boxOverheadY {
+				break
+			}
+			body = append(body, r)
 		}
-		out = append(out, r)
 	}
-	return out
+	// Fill the frame it was given even when the table has fewer rows than the
+	// budget: a short box would leave the status line floating above the
+	// bottom of the terminal.
+	body = padBody(body, lines-boxOverheadY)
+	return crop(PanelBox("Processes", body, width, th), lines, width)
 }
 
 // statusLine is the diagnostics line above the key hints.
@@ -302,17 +381,55 @@ func statusLine(in LayoutInput, th Theme) Row {
 	return row
 }
 
-// keyHints is the fixed one-line key reference at the bottom. It is a
-// curated subset, not the full table: the full reference is one key away
-// behind `h`, and a hint line that wraps is no longer a hint line.
-func keyHints(th Theme, width int) Row {
-	hint := "q quit  1-9/tab GPU  o overview  m theme  +- interval  p procs  / filter  s sort  h help"
-	return Row{Cells: []Cell{{Text: cutRunes(hint, width), Color: th.Muted}}}
+// footerHints is the curated key reference shown at the bottom of the
+// screen: the handful a user reaches for, in reading order. The full list is
+// one key away behind h, and a hint line that wraps is no longer a hint line.
+var footerHints = []struct {
+	Key   string
+	Label string
+}{
+	{"q", "quit"},
+	{"1-9/tab", "GPU"},
+	{"o", "overview"},
+	{"m", "theme"},
+	{"+-", "interval"},
+	{"p", "procs"},
+	{"/", "filter"},
+	{"s", "sort"},
+	{"h", "help"},
 }
 
-// titleRow is a panel title line.
-func titleRow(text string, th Theme) Row {
-	return Row{Cells: []Cell{{Text: text, Color: th.Accent + "|bold"}}}
+// keyHints is the fixed one-line key reference at the bottom.
+//
+// Keys and labels are separate runs: the key gets the accent and bold, the
+// label stays muted. That is what makes the line scannable as keys rather
+// than as a sentence, and it survives --no-color as a readable "q quit"
+// because the separation is in the text, not only in the colour.
+func keyHints(th Theme, width int) Row {
+	cells := make([]Cell, 0, len(footerHints)*3)
+	used := 0
+	for i, h := range footerHints {
+		group := len([]rune(h.Key)) + 1 + len([]rune(h.Label))
+		sep := 0
+		if i > 0 {
+			sep = 3 // " · "
+		}
+		// Stop at a group boundary: half a key ("1-9/ta") is worse than a
+		// shorter hint line, because it turns a target into a typo.
+		if used+sep+group > width {
+			break
+		}
+		if sep > 0 {
+			cells = append(cells, Cell{Text: " · ", Color: th.Track})
+			used += sep
+		}
+		cells = append(cells, Cell{Text: h.Key, Color: th.Accent + "|bold"}, Cell{Text: " " + h.Label, Color: th.Muted})
+		used += group
+	}
+	if len(cells) == 0 {
+		return fitRow(Row{Cells: []Cell{{Text: cutRunes("q quit", width), Color: th.Muted}}}, width)
+	}
+	return fitRow(Row{Cells: cells}, width)
 }
 
 // graphRows rasterises a series into height lines of braille text.
