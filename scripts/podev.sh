@@ -13,6 +13,8 @@
 #   ./scripts/podev.sh vet   [packages...]   # go vet ./...
 #   ./scripts/podev.sh lint  [packages...]   # golangci-lint run ./...
 #   ./scripts/podev.sh shell                 # interactive shell in the dev image
+#   ./scripts/podev.sh run [args...]         # run the TUI against this host (read-only mounts)
+#   ./scripts/podev.sh screenshots           # regenerate docs/screenshots/*.svg
 #   ./scripts/podev.sh image                 # (re)build the dev image
 set -euo pipefail
 
@@ -30,6 +32,26 @@ build_image() {
 run_in_dev() {
     podman run --rm \
         -v "${REPO_ROOT}:/work:z" -w /work \
+        -v gputop-gocache:/gocache -e GOCACHE=/gocache \
+        -v gputop-gomodcache:/gomodcache -e GOMODCACHE=/gomodcache \
+        "${IMAGE}" "$@"
+}
+
+# run_against_host runs a command in the dev image with the host's kernel
+# interfaces mounted read-only, so the TUI sees the same GPUs and processes as
+# `./gputop` on the host. --pid=host is what makes /proc show the host's
+# process list rather than the container's; the mounts are read-only because
+# the application has no write path and must never acquire one by accident.
+run_against_host() {
+    local tty_flags=()
+    if [ -t 0 ] && [ -t 1 ]; then
+        tty_flags=(-it)
+    fi
+    podman run --rm "${tty_flags[@]}" \
+        --security-opt label=disable \
+        --pid=host \
+        -v "${REPO_ROOT}:/work:z" -w /work \
+        -v /sys:/sys:ro -v /proc:/proc:ro -v /dev/dri:/dev/dri:ro \
         -v gputop-gocache:/gocache -e GOCACHE=/gocache \
         -v gputop-gomodcache:/gomodcache -e GOMODCACHE=/gomodcache \
         "${IMAGE}" "$@"
@@ -99,6 +121,12 @@ case "${cmd}" in
             -v gputop-gocache:/gocache -e GOCACHE=/gocache \
             -v gputop-gomodcache:/gomodcache -e GOMODCACHE=/gomodcache \
             "${IMAGE}" bash
+        ;;
+    run)
+        run_against_host go run ./cmd/gputop "$@"
+        ;;
+    screenshots)
+        run_in_dev go run ./tools/screenshots "$@"
         ;;
     help|*)
         sed -n '2,/^#$/p' "${BASH_SOURCE[0]}" | sed 's/^# \?//'
