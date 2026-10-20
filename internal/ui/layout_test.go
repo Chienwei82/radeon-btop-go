@@ -49,10 +49,10 @@ func TestNarrowTerminalStacksSensorsUnderGraphs(t *testing.T) {
 	lines := plainRows(RenderScreen(in))
 	graph, sensors := -1, -1
 	for i, line := range lines {
-		if strings.Contains(line, "GPU busy") && graph < 0 {
+		if strings.Contains(line, "╭─ GPU busy") && graph < 0 {
 			graph = i
 		}
-		if strings.TrimSpace(line) == "Sensors" && sensors < 0 {
+		if strings.Contains(line, "╭─ Sensors") && sensors < 0 {
 			sensors = i
 		}
 	}
@@ -274,7 +274,7 @@ func TestNoAlertLeavesTheStatusLineAlone(t *testing.T) {
 
 func titledLine(lines []string, title string) bool {
 	for _, line := range lines {
-		if strings.TrimSpace(line) == title {
+		if strings.TrimSpace(line) == title || strings.Contains(line, "╭─ "+title) {
 			return true
 		}
 	}

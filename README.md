@@ -106,7 +106,9 @@ What differs by generation, and what `--check` tells you on your machine:
 
 Nine panels, laid out to survive a narrow or short terminal (stack below 72
 columns; process table yields below 20 rows; memory graphs hidden below 28;
-the utilisation graph is never dropped).
+the utilisation graph is never dropped). Panels are drawn as rounded frames,
+the graph/sensor split and the VRAM/GTT pair are explicit columns, and the key
+hints paint each key apart from its label.
 
 - **Devices** — every `amdgpu` card, discrete first. `tab` / `shift+tab`
   switch, `1`–`9` jump, `o` shows every GPU at once.

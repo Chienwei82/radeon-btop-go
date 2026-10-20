@@ -614,18 +614,45 @@ func (a *App) renderRows(rows []Row, width, height int) string {
 	return strings.Join(lines, "\n")
 }
 
-// styleCell paints one cell. The colour key is a hex value with an optional
-// "|bold" suffix, which is the same key the pure panels carry.
+// styleCell paints one cell. The colour key is a hex value with optional
+// "|bold" / "|reverse" suffixes, which is the same key the pure panels carry.
 func (a *App) styleCell(cell Cell) string {
 	if a.opts.Config.UI.NoColor || cell.Color == "" {
 		return cell.Text
 	}
-	colour, bold := strings.CutSuffix(cell.Color, "|bold")
-	style := lipgloss.NewStyle().Foreground(lipgloss.Color(colour))
+	colour, bold, reverse := parseCellStyle(cell.Color)
+	style := lipgloss.NewStyle()
+	if colour != "" {
+		style = style.Foreground(lipgloss.Color(colour))
+	}
 	if bold {
 		style = style.Bold(true)
 	}
+	if reverse {
+		style = style.Reverse(true)
+	}
 	return style.Render(cell.Text)
+}
+
+// parseCellStyle splits a cell colour key into its colour and modifiers.
+//
+// The suffixes are attributes of the style, not part of the colour: handing
+// "#e6e6e6|reverse" to lipgloss as a colour silently drops the reverse video,
+// which is how the active GPU badge lost its highlight.
+func parseCellStyle(key string) (colour string, bold, reverse bool) {
+	for _, part := range strings.Split(key, "|") {
+		switch part {
+		case "":
+			// "|bold|" and similar have an empty run; ignore it.
+		case "bold":
+			bold = true
+		case "reverse":
+			reverse = true
+		default:
+			colour = part
+		}
+	}
+	return colour, bold, reverse
 }
 
 // Status is the last notice the app produced: a refused signal, a save

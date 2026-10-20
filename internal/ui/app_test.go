@@ -348,3 +348,26 @@ func TestAppWaitingFrameIsNotAnEmptyScreen(t *testing.T) {
 		t.Fatalf("first frame = %q, want an explanation", text)
 	}
 }
+
+// Reverse video is part of the cell contract (the active GPU badge uses it),
+// so a style key that carries |reverse must reach lipgloss. Before this test
+// the suffix was passed through as if it were part of the colour and the
+// badge lost its highlight.
+func TestStyleCellAppliesReverseVideo(t *testing.T) {
+	app := &App{}
+	got := app.styleCell(Cell{Text: " 1 ", Color: "#e6e6e6|reverse"})
+	if !strings.Contains(got, "\x1b[7;") && !strings.Contains(got, "\x1b[7m") {
+		t.Fatalf("styleCell(reverse) = %q, want a reverse-video escape", got)
+	}
+}
+
+func TestStyleCellAppliesBoldAndReverseTogether(t *testing.T) {
+	app := &App{}
+	got := app.styleCell(Cell{Text: "Q", Color: "#e6e6e6|bold|reverse"})
+	if !strings.Contains(got, "\x1b[") || !strings.Contains(got, ";") {
+		t.Fatalf("styleCell(bold|reverse) = %q, want a combined style escape", got)
+	}
+	if !strings.Contains(got, "1") || !strings.Contains(got, "7") {
+		t.Fatalf("styleCell(bold|reverse) = %q, want both bold and reverse enabled", got)
+	}
+}
