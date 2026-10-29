@@ -13,7 +13,7 @@
 # rest of the recipe once the owner settles the remote.
 
 pkgname=gputop
-pkgver=1.1.0
+pkgver=1.2.0
 pkgrel=1
 pkgdesc="A btop-style TUI monitor for AMD Radeon GPUs driven by the amdgpu kernel driver"
 arch=('x86_64' 'aarch64')

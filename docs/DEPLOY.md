@@ -39,30 +39,30 @@ that the release is what the source says it is. It uses podman only; the host
 never receives a Go toolchain.
 
 ```bash
-git archive --format=tar.gz --prefix=gputop-1.1.0/ \
-  -o /tmp/gputop-1.1.0-src.tar.gz v1.1.0
+git archive --format=tar.gz --prefix=gputop-1.2.0/ \
+  -o /tmp/gputop-1.2.0-src.tar.gz v1.2.0
 mkdir -p /tmp/gputop-build
-tar -xzf /tmp/gputop-1.1.0-src.tar.gz -C /tmp/gputop-build
+tar -xzf /tmp/gputop-1.2.0-src.tar.gz -C /tmp/gputop-build
 
-GPUTOP_SOURCE_DIR=/tmp/gputop-build/gputop-1.1.0 \
+GPUTOP_SOURCE_DIR=/tmp/gputop-build/gputop-1.2.0 \
   ./scripts/release.sh
 ```
 
 The script builds the `release` stage of the `Containerfile`, extracts
 `/gputop` from the distroless image, checks that the extracted binary and the
 image both report the version, and writes the tarball plus its checksum under
-`/tmp/gputop-build/gputop-1.1.0/dist/`.
+`/tmp/gputop-build/gputop-1.2.0/dist/`.
 
 ### Install it
 
 ```bash
 cd /tmp
-# download gputop-1.1.0-linux-x86_64.tar.gz and its .sha256 into /tmp first
-sha256sum -c gputop-1.1.0-linux-x86_64.tar.gz.sha256
-tar -xzf gputop-1.1.0-linux-x86_64.tar.gz
-cd gputop-1.1.0-linux-x86_64
+# download gputop-1.2.0-linux-x86_64.tar.gz and its .sha256 into /tmp first
+sha256sum -c gputop-1.2.0-linux-x86_64.tar.gz.sha256
+tar -xzf gputop-1.2.0-linux-x86_64.tar.gz
+cd gputop-1.2.0-linux-x86_64
 
-./gputop --version                 # gputop 1.1.0
+./gputop --version                 # gputop 1.2.0
 ./gputop --check
 ```
 
@@ -177,7 +177,7 @@ publishes `v<base>`.
 
 `v1.0.0` is the historical tag of the first release: it names commit
 `bc7c5f3` and is immutable, so it is reserved rather than published again.
-Bumping the base version to `1.1.0` is what keeps the automatic flow from
+Bumping the base version to `1.2.0` is what keeps the automatic flow from
 trying to reuse it — the version in `cmd/gputop/main.go` decides which tag
 the next merge will publish.
 
@@ -240,10 +240,10 @@ The `Containerfile` has a `release` stage that produces a distroless image with
 `/gputop` as its entrypoint. Build it locally:
 
 ```bash
-podman build --target release --build-arg VERSION=1.1.0 -t gputop:1.1.0 .
+podman build --target release --build-arg VERSION=1.2.0 -t gputop:1.2.0 .
 
-podman run --rm gputop:1.1.0 --version
-podman run --rm gputop:1.1.0 --help
+podman run --rm gputop:1.2.0 --version
+podman run --rm gputop:1.2.0 --help
 ```
 
 ### Run it against the host's kernel interfaces
@@ -259,7 +259,7 @@ podman run --rm -it \
   -v /sys:/sys:ro \
   -v /proc:/proc:ro \
   -v /dev/dri:/dev/dri:ro \
-  gputop:1.1.0
+  gputop:1.2.0
 ```
 
 Headless check with the same mounts:
@@ -268,7 +268,7 @@ Headless check with the same mounts:
 podman run --rm \
   --security-opt label=disable --pid=host \
   -v /sys:/sys:ro -v /proc:/proc:ro -v /dev/dri:/dev/dri:ro \
-  gputop:1.1.0 --check
+  gputop:1.2.0 --check
 ```
 
 `--pid=host` is what makes `/proc` show the host's process list rather than the
@@ -326,7 +326,7 @@ sudo rm -f /usr/local/share/fish/vendor_completions.d/gputop.fish
 sudo pacman -R gputop
 
 # container
-podman rmi gputop:1.1.0
+podman rmi gputop:1.2.0
 ```
 
 gputop writes only its own configuration/state file

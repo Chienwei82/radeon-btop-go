@@ -97,10 +97,10 @@ dependency — not a Go toolchain.
 The `release` stage is a distroless image with `/gputop` as its entrypoint:
 
 ```bash
-podman build --target release -t gputop:1.1.0 .
+podman build --target release -t gputop:1.2.0 .
 podman run --rm -it --security-opt label=disable --pid=host \
   -v /sys:/sys:ro -v /proc:/proc:ro -v /dev/dri:/dev/dri:ro \
-  gputop:1.1.0
+  gputop:1.2.0
 ```
 
 The host's kernel interfaces are mounted read-only; `--pid=host` is what makes
