@@ -55,22 +55,27 @@ func BrailleText(samples []*float64, width, height int, gradient Gradient, track
 	dotsHigh := height * 4
 	dotCols := width * 2
 
-	present := make([]float64, 0, len(samples))
-	for _, s := range samples {
-		if s != nil {
-			present = append(present, *s)
-		}
-	}
-
 	var lo, hi float64
-	if scale == ScaleAuto {
-		if len(present) == 0 {
-			lo, hi = 0, 100
-		} else {
-			lo, hi = present[0], present[0]
-			for _, v := range present[1:] {
+	first := true
+	if len(samples) > 0 {
+		for _, s := range samples {
+			if s == nil {
+				continue
+			}
+			v := *s
+			if first {
+				lo, hi = v, v
+				first = false
+			} else {
 				lo, hi = min(lo, v), max(hi, v)
 			}
+		}
+	}
+	if first {
+		lo, hi = 0, 100
+	}
+	if scale == ScaleAuto {
+		if !first {
 			if hi-lo < 1e-9 {
 				mid := (hi + lo) / 2
 				lo, hi = mid-50, mid+50
