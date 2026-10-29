@@ -236,7 +236,8 @@
     <text x="345.60" y="321.00" fill="#e6e6e6"> </text>
     <text x="354.00" y="321.00" fill="#61afef">│</text>
     <text x="362.40" y="321.00" fill="#e6e6e6"> </text>
-    <text x="370.80" y="321.00" fill="#e6e6e6">⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀</text>
+    <text x="370.80" y="321.00" fill="#e6e6e6">GTT  1.4 GiB / 16.0 GiB (9%)</text>
+    <text x="606.00" y="321.00" fill="#e6e6e6">     </text>
     <text x="648.00" y="321.00" fill="#e6e6e6"> </text>
     <text x="656.40" y="321.00" fill="#61afef">│</text>
     <text x="664.80" y="321.00" fill="#e6e6e6"> </text>
@@ -258,7 +259,8 @@
     <text x="345.60" y="338.00" fill="#e6e6e6"> </text>
     <text x="354.00" y="338.00" fill="#61afef">│</text>
     <text x="362.40" y="338.00" fill="#e6e6e6"> </text>
-    <text x="370.80" y="338.00" fill="#e6e6e6">⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀</text>
+    <text x="370.80" y="338.00" fill="#7f848e">overdrive on</text>
+    <text x="471.60" y="338.00" fill="#e6e6e6">                     </text>
     <text x="648.00" y="338.00" fill="#e6e6e6"> </text>
     <text x="656.40" y="338.00" fill="#61afef">│</text>
     <text x="664.80" y="338.00" fill="#e6e6e6"> </text>
@@ -321,7 +323,7 @@
     <text x="345.60" y="389.00" fill="#e6e6e6"> </text>
     <text x="354.00" y="389.00" fill="#61afef">│</text>
     <text x="362.40" y="389.00" fill="#e6e6e6"> </text>
-    <text x="370.80" y="389.00" fill="#e6e6e6">⣶⣶⣶⣶⣶⣶⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣶⣶⣶⣶⣶⣶</text>
+    <text x="370.80" y="389.00" fill="#e6e6e6">⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤⣤</text>
     <text x="648.00" y="389.00" fill="#e6e6e6"> </text>
     <text x="656.40" y="389.00" fill="#61afef">│</text>
     <text x="664.80" y="389.00" fill="#e6e6e6"> </text>

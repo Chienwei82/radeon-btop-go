@@ -455,6 +455,40 @@ badge lost its reverse-video highlight, and the key hints were one muted run.
 
 ---
 
+## Post-v1 GTT readout pass (2026-10-28)
+
+**Scope:** the framed GTT panel stopped being a bare graph and became a
+readout: the pool figure as a labelled number plus an overclock/voltage
+indicator, with the graph spending the height those rows cost.
+
+**Changed**
+
+- The GTT framed panel (`internal/ui/layout.go`, `graphBlock`) now prepends
+  `memoryReadout` rows — the pool figure (`used / total (pct%)`) and the
+  overclock status (`overdrive on · vddgfx -50 mV`, or `overdrive N/A`) — and
+  the bramble graph draws the remaining height.
+- `internal/ui/panels.go` gained `poolValue` (the shared "used / total (pct%)"
+  figure), `OverdriveStatusRow` (overdrive state + applied gfx voltage offset)
+  and `memoryReadout` (figure row + status row). The figure row is a plain
+  detail row rather than a bar row: the two-panel column is too narrow for
+  label + bar + value at the floor, while the figure is what the user came to
+  read.
+
+**Verified**
+
+- New tests: `TestGTTPanelKeepsThePoolNumberAndAddsOverdriveStatus` plus the
+  `OverdriveStatusRow` pair; `TestScreenGolden` regenerated.
+- Gates: gofmt empty, vet clean, lint **0 issues**, `go test ./...` green,
+  `go build ./...` green.
+
+**Not done / notes**
+
+- The VRAM panel keeps the bare graph; symmetric treatment of VRAM is a
+  possible follow-up.
+- Overdrive state is derived from the published `pp_od_clk_voltage` content
+  (clock domains or a gfx voltage offset); a card with no table reads
+  `overdrive N/A`.
+
 ## Post-v1 deferred improvements (2026-10-19)
 
 **Scope:** the code work queued by the visual pass. Not a phase; `v1.0.0`
