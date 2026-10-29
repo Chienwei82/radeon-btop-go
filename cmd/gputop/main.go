@@ -24,7 +24,7 @@ import (
 // with -ldflags "-X main.version=...". The default is the version this tree
 // documents; scripts/check_packaging.sh keeps the man page and PKGBUILD in
 // step with it.
-var version = "1.1.0"
+var version = "1.2.0"
 
 func main() {
 	status, err := runWith(os.Args[1:], os.Stdout)
