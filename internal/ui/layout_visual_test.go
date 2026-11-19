@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 	"testing"
+
+	"github.com/gputop/gputop-go/internal/model"
 )
 
 // The screen has to read as separate panels, not one wall of text. Every
@@ -81,7 +83,7 @@ func TestHelpOverlayPaintsKeysApartFromTheirDescriptions(t *testing.T) {
 		}
 	}
 	if !key || !description {
-		t.Fatalf("help keys and descriptions are not styled apart: %#v", PlainLines(rows))
+		t.Fatalf("help keys and descriptions are not styled apart: %#v", rows)
 	}
 }
 
@@ -113,4 +115,28 @@ func TestOptionalRowFramesShareTheirBaseline(t *testing.T) {
 		}
 	}
 	t.Fatalf("optional frames never close:\n%s", strings.Join(lines, "\n"))
+}
+
+// The GTT box is a framed panel that answers "how much GTT is in use" at a
+// glance: the pool figure as a number, plus the overclock/voltage indicators.
+// It must not regress to a bare graph that leaves the figure unread.
+func TestGTTPanelKeepsThePoolNumberAndAddsOverdriveStatus(t *testing.T) {
+	in := screenInput()
+	in.Width, in.Height = 120, 40
+	m := in.Snapshot.Devices[0]
+	gtt, total := model.Bytes(512*1024*1024), model.Bytes(8*1024*1024*1024)
+	m.GTT = model.MemoryPool{Used: &gtt, Total: &total, Source: "sysfs"}
+	m.ODC = odcMetrics().ODC
+	in.Snapshot.Devices[0] = m
+	joined := strings.Join(plainRows(RenderScreen(in)), "\n")
+	for _, want := range []string{
+		"GTT",
+		"512.0 MiB / 8.0 GiB (6%)",
+		"overdrive on",
+		"vddgfx -50 mV",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("screen misses %q:\n%s", want, joined)
+		}
+	}
 }

@@ -155,7 +155,9 @@ hints paint each key apart from its label.
 - **Devices** — every `amdgpu` card, discrete first. `tab` / `shift+tab`
   switch, `1`–`9` jump, `o` shows every GPU at once.
 - **Utilisation** — busy %, with the memory panel leading on GTT for an
-  integrated GPU.
+  integrated GPU; the GTT panel carries the pool figure as a labelled number
+  (`used / total (pct%)`) plus an overclock/voltage indicator, above the
+  bramble graph.
 - **Sensors** — clocks, temperatures, power against the enforced cap, fan,
   throttle reasons, PCIe link width and speed.
 - **Processes** — a sortable, filterable table of DRM clients (PID, USER,

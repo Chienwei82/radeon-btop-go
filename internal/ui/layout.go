@@ -299,7 +299,18 @@ func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, wi
 		half := (width - 1) / 2
 		other := width - half - 1
 		vram := PanelBox("VRAM", graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.VRAM }), memH, half-boxOverheadX), half, th)
-		gtt := PanelBox("GTT", graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.GTT }), memH, other-boxOverheadX), other, th)
+		// The GTT box carries the pool figure as a number plus the overclock
+		// indicators, and the graph spends the height those rows cost.
+		gttBody := []Row{}
+		if device != nil {
+			gttBody = memoryReadout(*device, th, other-boxOverheadX, device.GTT, "GTT")
+		}
+		gttGraphH := memH
+		if len(gttBody) > 0 {
+			gttGraphH = max(1, memH-len(gttBody))
+		}
+		gttBody = append(gttBody, graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.GTT }), gttGraphH, other-boxOverheadX)...)
+		gtt := PanelBox("GTT", gttBody, other, th)
 		out = append(out, joinColumns(vram, gtt, half, other, 1)...)
 	}
 

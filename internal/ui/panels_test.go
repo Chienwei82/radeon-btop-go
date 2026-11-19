@@ -45,3 +45,23 @@ func contains(s, sub string) bool {
 	}
 	return false
 }
+
+// The overclock/voltage indicator: an overclocked card names its state and,
+// when a gfx voltage offset is applied, that offset. Absent readings are N/A,
+// never a guessed value.
+func TestOverdriveStatusRowReportsOverclockAndVoltage(t *testing.T) {
+	row := Plain(OverdriveStatusRow(odcMetrics(), GetTheme("default"), 44))
+	if !contains(row, "overdrive on") {
+		t.Fatalf("row = %q, want the overclock state", row)
+	}
+	if !contains(row, "vddgfx -50 mV") {
+		t.Fatalf("row = %q, want the applied gfx voltage offset", row)
+	}
+}
+
+func TestOverdriveStatusRowAbsentIsNANotZero(t *testing.T) {
+	row := Plain(OverdriveStatusRow(testMetrics(), GetTheme("default"), 44))
+	if !contains(row, "overdrive "+NA) {
+		t.Fatalf("row = %q, want overdrive N/A", row)
+	}
+}

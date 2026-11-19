@@ -99,17 +99,49 @@ func PoolRow(label string, pool model.MemoryPool, th Theme, available int, gradi
 		v := float64(*pct)
 		pctF = &v
 	}
-	usedS := NA
+	return StatRow(label, poolValue(pool), pctF, th, available, gradient)
+}
+
+// poolValue renders a memory pool's figure as "used / total (pct%)", or N/A
+// when the pool itself is unknown.
+func poolValue(pool model.MemoryPool) string {
+	usedS, totalS := NA, NA
 	if pool.Used != nil {
 		usedS = FmtBytes(pool.Used)
 	}
-	totalS := NA
 	if pool.Total != nil {
 		totalS = FmtBytes(pool.Total)
 	}
 	value := usedS + " / " + totalS
-	if pct != nil {
+	if pct := pool.Percent(); pct != nil {
 		value += fmt.Sprintf(" (%.0f%%)", float64(*pct))
 	}
-	return StatRow(label, value, pctF, th, available, gradient)
+	return value
+}
+
+// OverdriveStatusRow renders the overclock/voltage indicator for the memory
+// panels: whether the card runs with an overclocked configuration and, when a
+// gfx voltage offset is applied, that offset. Absent readings render N/A, so
+// an unpublished table is never guessed at.
+func OverdriveStatusRow(m model.AmdgpuMetrics, th Theme, available int) Row {
+	text := "overdrive " + NA
+	if len(m.ODC.Domains) > 0 || m.ODC.VddgfxOffsetMv != nil {
+		text = "overdrive on"
+		if off := m.ODC.VddgfxOffsetMv; off != nil && *off != 0 {
+			text += fmt.Sprintf(" · vddgfx %+d mV", *off)
+		}
+	}
+	return detailText(text, th.Muted, available)
+}
+
+// memoryReadout renders the useful label rows for one memory-pool panel: the
+// pool's own figure as a labelled number ("used / total (pct%)") above the
+// graph, plus the overclock/voltage indicators. The number is a plain detail
+// row, not a bar row: a bar needs label + value + reserved space and does not
+// always fit the narrow two-panel column, while the figure itself is what the
+// user came here to read.
+func memoryReadout(m model.AmdgpuMetrics, th Theme, available int, pool model.MemoryPool, label string) []Row {
+	rows := []Row{detailText(label+"  "+poolValue(pool), th.Text, available)}
+	rows = append(rows, OverdriveStatusRow(m, th, available))
+	return rows
 }
