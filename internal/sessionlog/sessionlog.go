@@ -97,6 +97,10 @@ func SplitTarget(path string) (Format, bool, string, error) {
 
 // SessionLog is an open recording target. Construct it with OpenLog, which
 // resolves the format from the filename and reports a problem as a value.
+//
+// A SessionLog is not safe for concurrent use: one instance belongs to the
+// goroutine that records, which today is the TUI's event loop. Write, Flush
+// and Close must all be called from that same goroutine.
 type SessionLog struct {
 	Path       string
 	Format     Format
@@ -114,6 +118,10 @@ type SessionLog struct {
 	file    *os.File
 	encoder *zstd.Encoder
 	writer  io.Writer
+
+	// buf is a reusable buffer for line formatting. It avoids the allocation
+	// of a fresh strings.Builder on every record.
+	buf strings.Builder
 }
 
 // Records is how many records have been written; one record is one device in
@@ -220,7 +228,9 @@ func (l *SessionLog) line(snapshot model.GpuSnapshot, metrics *model.AmdgpuMetri
 		}
 		return record + "\n", nil
 	}
-	var b strings.Builder
+	// Reuse the per-log buffer to avoid allocating a new builder on every record.
+	b := &l.buf
+	b.Reset()
 	if !l.HeaderWritten {
 		for i, column := range CSVColumns {
 			if i > 0 {

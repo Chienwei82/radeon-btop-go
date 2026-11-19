@@ -32,11 +32,22 @@ func (r *RingBuffer[T]) Append(item T) {
 }
 
 // Items returns the retained items oldest-first.
+//
+// The result is always a fresh copy: the sampler publishes this slice as the
+// immutable history view, so handing back the ring's own array would let a
+// later Append mutate a snapshot a reader is holding.
+//
+// A ring that has not wrapped yet (start == 0) needs one block copy; a wrapped
+// one is the tail followed by the head, two memmoves rather than a modulo per
+// element.
 func (r *RingBuffer[T]) Items() []T {
-	out := make([]T, 0, len(r.items))
-	for i := 0; i < len(r.items); i++ {
-		out = append(out, r.items[(r.start+i)%r.capacity])
+	out := make([]T, len(r.items))
+	if r.start == 0 {
+		copy(out, r.items)
+		return out
 	}
+	wrapped := copy(out, r.items[r.start:])
+	copy(out[wrapped:], r.items[:r.start])
 	return out
 }
 

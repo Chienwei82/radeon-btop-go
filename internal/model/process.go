@@ -1,5 +1,9 @@
 package model
 
+import (
+	"strings"
+)
+
 // EngineUsage holds cumulative and per-interval time on one GPU engine.
 type EngineUsage struct {
 	Engine   string
@@ -42,14 +46,10 @@ func (p GpuProcess) Command() string {
 	if len(p.Cmdline) == 0 {
 		return p.Name
 	}
-	out := ""
-	for i, arg := range p.Cmdline {
-		if i > 0 {
-			out += " "
-		}
-		out += arg
+	if len(p.Cmdline) == 1 {
+		return p.Cmdline[0]
 	}
-	return out
+	return strings.Join(p.Cmdline, " ")
 }
 
 // IsKernelThread reports whether this looks like a kernel thread.

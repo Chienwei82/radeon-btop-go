@@ -197,3 +197,35 @@ func TestRingBufferAndSnapshot(t *testing.T) {
 		t.Fatal("hint shape wrong")
 	}
 }
+
+// The sampler publishes Items() as its immutable history view, so the result
+// must be independent of the ring's own storage. Two ways that can break: a
+// caller writing into the returned slice corrupts the buffer, and a later
+// Append reaches into a slice a reader is still holding.
+func TestRingBufferItemsIsIndependentCopy(t *testing.T) {
+	r := NewRingBuffer[int](4)
+	r.Append(1)
+	r.Append(2)
+
+	// Not wrapped yet: start == 0, the branch that copies the array in one go.
+	partial := r.Items()
+	if len(partial) != 2 || partial[0] != 1 || partial[1] != 2 {
+		t.Fatalf("Items() before wrap = %v, want [1 2]", partial)
+	}
+	partial[0] = 99
+	if again := r.Items(); again[0] != 1 {
+		t.Fatalf("Items() after a caller write = %v, want the ring untouched at 1", again)
+	}
+
+	// Fill and wrap: the slice handed out above must keep its own contents.
+	held := r.Items()
+	for i := 3; i <= 6; i++ {
+		r.Append(i)
+	}
+	if held[0] != 1 || held[1] != 2 {
+		t.Fatalf("held slice changed under later Appends: %v, want [1 2]", held)
+	}
+	if got := r.Items(); len(got) != 4 || got[0] != 3 || got[3] != 6 {
+		t.Fatalf("Items() after wrap = %v, want [3 4 5 6]", got)
+	}
+}
