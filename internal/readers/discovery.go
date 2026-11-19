@@ -46,43 +46,40 @@ func isAmdgpu(deviceDir string) bool {
 	return parts[len(parts)-1] == "amdgpu"
 }
 
-func resolveHwmon(deviceDir string) string {
-	hwmonLink := filepath.Join(deviceDir, "hwmon")
-	entries, err := os.ReadDir(hwmonLink)
+// firstEntry returns the first entry name in dir that satisfies match, or ""
+// when the directory cannot be read or holds no match.
+//
+// os.ReadDir returns entries sorted by filename, so the first match in
+// iteration order is also the lexically first one: the explicit name slice and
+// sort both callers used to build were redundant, and this allocates neither.
+func firstEntry(dir string, match func(string) bool) string {
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return ""
 	}
-	var names []string
-	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), "hwmon") {
-			names = append(names, e.Name())
+	for _, entry := range entries {
+		if match(entry.Name()) {
+			return entry.Name()
 		}
 	}
-	if len(names) == 0 {
+	return ""
+}
+
+// resolveHwmon returns the device's hwmon directory, or "" when it has none.
+func resolveHwmon(deviceDir string) string {
+	hwmonLink := filepath.Join(deviceDir, "hwmon")
+	name := firstEntry(hwmonLink, func(n string) bool { return strings.HasPrefix(n, "hwmon") })
+	if name == "" {
 		return ""
 	}
-	sort.Strings(names)
-	return filepath.Join(hwmonLink, names[0])
+	return filepath.Join(hwmonLink, name)
 }
 
 var renderPattern = regexp.MustCompile(`^renderD\d+$`)
 
+// findRenderNode returns the device's render node name, or "" when it has none.
 func findRenderNode(deviceDir string) string {
-	entries, err := os.ReadDir(filepath.Join(deviceDir, "drm"))
-	if err != nil {
-		return ""
-	}
-	var names []string
-	for _, e := range entries {
-		names = append(names, e.Name())
-	}
-	sort.Strings(names)
-	for _, n := range names {
-		if renderPattern.MatchString(n) {
-			return n
-		}
-	}
-	return ""
+	return firstEntry(filepath.Join(deviceDir, "drm"), renderPattern.MatchString)
 }
 
 func classify(deviceDir string, deviceID int, vramVendor *string, forced *model.DeviceKind) model.DeviceKind {

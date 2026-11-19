@@ -8,16 +8,29 @@ import (
 // OR-ed into this base.
 const BrailleBase = 0x2800
 
+// Braille dot bit constants. Each bit represents one dot in the 2x4 braille
+// cell, which the BrailleBits table maps to [row][column] positions.
+const (
+	BrailleDot1 = 0x01 // row 0, col 0 (top-left)
+	BrailleDot2 = 0x02 // row 1, col 0 (middle-left upper)
+	BrailleDot3 = 0x04 // row 2, col 0 (middle-left lower)
+	BrailleDot4 = 0x08 // row 0, col 1 (top-right)
+	BrailleDot5 = 0x10 // row 1, col 1 (middle-right upper)
+	BrailleDot6 = 0x20 // row 2, col 1 (middle-right lower)
+	BrailleDot7 = 0x40 // row 3, col 0 (bottom-left)
+	BrailleDot8 = 0x80 // row 3, col 1 (bottom-right)
+)
+
 // BrailleBits maps [row][column] to the bit that lights that dot.
 //
 // The Unicode braille pattern is not a linear grid, which is the usual
 // source of off-by-one braille renderers: dots 1-3 and 7 form the left
 // column, dots 4-6 and 8 the right one.
 var BrailleBits = [4][2]int{
-	{0x01, 0x08}, // row 0: dots 1 and 4
-	{0x02, 0x10}, // row 1: dots 2 and 5
-	{0x04, 0x20}, // row 2: dots 3 and 6
-	{0x40, 0x80}, // row 3: dots 7 and 8
+	{BrailleDot1, BrailleDot4}, // row 0: dots 1 and 4
+	{BrailleDot2, BrailleDot5}, // row 1: dots 2 and 5
+	{BrailleDot3, BrailleDot6}, // row 2: dots 3 and 6
+	{BrailleDot7, BrailleDot8}, // row 3: dots 7 and 8
 }
 
 // ScaleMode selects the graph's vertical axis.
