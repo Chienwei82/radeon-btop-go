@@ -59,14 +59,20 @@ func headingRow(th Theme, sort SortState, cols []model.SortColumn, widths []int)
 	return Row{Cells: trimLast(cells)}
 }
 
+// SelectMarker marks the row the cursor is on; TopMarker marks the busiest
+// row. They are different glyphs so the selection survives --no-color and is
+// still distinct from the "this one is using the most GPU" hint.
+const SelectMarker = "❯"
+
 // processRow renders one client: tree guides fold into the command cell
 // (they indent the name, not the table), the marker slots in front of the
 // PID, and a marked row is painted with the accent so it is findable at a
 // glance — the glyph alone keeps it findable when colour is off.
 func processRow(th Theme, pr ProcessRow, cols []model.SortColumn, widths []int, cfg TableConfig) Row {
-	marked := cfg.isMarked(pr.Process)
+	selected := cfg.isSelected(pr.Process)
+	top := !selected && cfg.isTop(pr.Process)
 	color := ""
-	if marked {
+	if selected || top {
 		color = th.Accent + "|bold"
 	}
 	values := RowCells(pr.Process, cfg.FullCommand)
@@ -81,11 +87,13 @@ func processRow(th Theme, pr ProcessRow, cols []model.SortColumn, widths []int, 
 		case c == model.SortCommand:
 			text = padWidthRight(pr.Prefix()+values[columnIndex(c)], w)
 		case c == model.SortPID:
-			if marked {
-				text = TopMarker + padWidthLeft(values[columnIndex(c)], w-1)
-			} else {
-				text = padWidthLeft(values[columnIndex(c)], w)
+			marker := " "
+			if selected {
+				marker = SelectMarker
+			} else if top {
+				marker = TopMarker
 			}
+			text = marker + padWidthLeft(values[columnIndex(c)], w-1)
 		case textColumn(c):
 			text = padWidthRight(values[columnIndex(c)], w)
 		default:
@@ -96,11 +104,13 @@ func processRow(th Theme, pr ProcessRow, cols []model.SortColumn, widths []int, 
 	return Row{Cells: trimLast(cells)}
 }
 
-// isMarked reports whether the client carries the top/selection marker.
-func (c TableConfig) isMarked(p model.GpuProcess) bool {
-	if c.Selected != nil && idOf(p) == *c.Selected {
-		return true
-	}
+// isSelected reports whether the client is the one the cursor is on.
+func (c TableConfig) isSelected(p model.GpuProcess) bool {
+	return c.Selected != nil && idOf(p) == *c.Selected
+}
+
+// isTop reports whether the client is one of the busiest on screen.
+func (c TableConfig) isTop(p model.GpuProcess) bool {
 	for _, t := range c.Top {
 		if idOf(t) == idOf(p) {
 			return true

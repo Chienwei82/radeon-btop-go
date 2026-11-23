@@ -242,7 +242,10 @@ completions in [packaging/completions/](packaging/completions/).
 | `t` | toggle process tree |
 | `c` | toggle full command line |
 | `up` / `down` | select previous / next process |
+| `pgup` / `pgdown` | scroll the process list a page |
+| `home` / `end` | jump to the first / last process |
 | `k` | signal selected process (needs `process.allow_kill` + confirmation) |
+| mouse | click a GPU tab to focus it, wheel to scroll the process list |
 
 ---
 

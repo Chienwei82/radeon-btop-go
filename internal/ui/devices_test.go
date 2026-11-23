@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/gputop/gputop-go/internal/model"
@@ -37,6 +38,32 @@ func TestDeviceAtResolvesClicks(t *testing.T) {
 	}
 	if got := DeviceAt(devices, -1); got != -1 {
 		t.Fatalf("device at -1 = %d, want -1", got)
+	}
+}
+
+// A tab bar too wide for a narrow terminal crops and says how many tabs are
+// hidden rather than slicing a tab in half or overflowing the row.
+func TestGPUTabsCropWithAMoreMarkerOnNarrowTerminals(t *testing.T) {
+	devices := make([]model.AmdgpuMetrics, 8)
+	for i := range devices {
+		devices[i] = testMetrics()
+	}
+	row := GPUTabs(devices, GetTheme("default"), 0, 40)
+	line := Plain(row)
+	if DisplayWidth(line) > 40 {
+		t.Fatalf("tab bar = %d cells, want <= 40: %q", DisplayWidth(line), line)
+	}
+	if !strings.Contains(line, "more") {
+		t.Fatalf("cropped tab bar carries no 'more' marker: %q", line)
+	}
+}
+
+// With room for every tab, no marker is shown.
+func TestGPUTabsShowNoMarkerWhenTheyFit(t *testing.T) {
+	devices := []model.AmdgpuMetrics{testMetrics(), testMetrics()}
+	line := Plain(GPUTabs(devices, GetTheme("default"), 0, 200))
+	if strings.Contains(line, "more") {
+		t.Fatalf("tab bar that fits claims hidden tabs: %q", line)
 	}
 }
 

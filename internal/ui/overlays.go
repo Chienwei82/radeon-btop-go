@@ -45,6 +45,8 @@ func DefaultHelp(signalHelp string, blocksNote ...string) []HelpEntry {
 		{"t", "process tree on / off"},
 		{"c", "full command line"},
 		{"up / down", "move the selection"},
+		{"pgup / pgdown", "scroll the process list"},
+		{"home / end", "jump to the first / last process"},
 		{"k", signalHelp},
 		{"h", "this help"},
 	}

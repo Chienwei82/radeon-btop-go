@@ -27,7 +27,9 @@ type KeyBinding struct {
 	Description string
 }
 
-// KeyBindings is the canonical 30 bindings.
+// KeyBindings is the canonical key reference. The help overlay and the
+// footer are curated views over it, so a key cannot be documented in one
+// place and forgotten in another.
 var KeyBindings = []KeyBinding{
 	{"q", "quit"},
 	{"tab", "next GPU"},
@@ -57,6 +59,10 @@ var KeyBindings = []KeyBinding{
 	{"c", "full command line"},
 	{"up", "move the selection"},
 	{"down", "move the selection"},
+	{"pgup", "scroll the process list up a page"},
+	{"pgdown", "scroll the process list down a page"},
+	{"home", "jump to the first process"},
+	{"end", "jump to the last process"},
 	{"k", "signal the selected process"},
 	{"h", "this help"},
 }
@@ -89,6 +95,10 @@ const (
 	ActionToggleFullCommand
 	ActionSelectNext
 	ActionSelectPrev
+	ActionSelectPageDown
+	ActionSelectPageUp
+	ActionSelectFirst
+	ActionSelectLast
 	ActionKill
 )
 
@@ -188,6 +198,14 @@ func (v *ViewState) HandleKey(key string) ViewAction {
 		return ActionSelectPrev
 	case "down":
 		return ActionSelectNext
+	case "pgup":
+		return ActionSelectPageUp
+	case "pgdown":
+		return ActionSelectPageDown
+	case "home":
+		return ActionSelectFirst
+	case "end":
+		return ActionSelectLast
 	case "k":
 		return ActionKill
 	case "h", "?":
