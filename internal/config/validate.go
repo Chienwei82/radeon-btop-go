@@ -66,8 +66,11 @@ func validateAlerts(a *AlertsConfig, warnings *[]string) {
 		*warnings = append(*warnings, fmt.Sprintf("alerts.vram_percent=%g out of range, using %g", a.VramPercent, clamped))
 		a.VramPercent = clamped
 	}
-	if a.FlashHz < 0 || a.FlashHz > 20 {
-		clamped := clampFloat(a.FlashHz, 0, 20)
+	// The flash is a 0–3 Hz oscillation: WCAG 2.2.2 caps blinking content at
+	// three times per second, and a faster alert is both inaccessible and
+	// indistinguishable from a solid colour. Zero disables it.
+	if a.FlashHz < 0 || a.FlashHz > 3 {
+		clamped := clampFloat(a.FlashHz, 0, 3)
 		*warnings = append(*warnings, fmt.Sprintf("alerts.flash_hz=%g out of range, using %g", a.FlashHz, clamped))
 		a.FlashHz = clamped
 	}

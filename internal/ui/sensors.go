@@ -55,9 +55,11 @@ func clockRow(label string, clock model.Clock, th Theme, available int, gradient
 }
 
 func detailRow(label, value, color string) Row {
-	return Row{Cells: []Cell{
-		{Text: strings.Repeat(" ", LabelWidth) + label + " " + value, Color: color},
-	}}
+	text := strings.Repeat(" ", LabelWidth) + label
+	if value != "" {
+		text += " " + value
+	}
+	return Row{Cells: []Cell{{Text: text, Color: color}}}
 }
 
 // SensorsPanel builds the sensor rows: clocks, temperatures, power, fan

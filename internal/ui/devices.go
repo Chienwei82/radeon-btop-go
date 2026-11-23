@@ -141,15 +141,74 @@ func floatPtr(v *float64) *model.Percent {
 // GPUTabs draws the device tab bar. Tabs are laid out left to right with a
 // separator; a single device still gets one tab (the focused marker is the
 // point, not the choice).
+//
+// When the tabs do not fit the available width -- a multi-GPU host on a narrow
+// terminal -- the bar is cropped and says how many are hidden rather than
+// slicing a tab in half or letting the row overflow.
 func GPUTabs(devices []model.AmdgpuMetrics, th Theme, index, available int) Row {
 	var cells []Cell
+	hidden := 0
+	markerWidth := DisplayWidth("  ▸ 99 more")
 	for i, m := range devices {
+		sep := 0
+		if i > 0 {
+			sep = DisplayWidth(" " + TabSeparator + " ")
+		}
+		tab := tabLabel(m, th, m.Device.Index == index, i+1)
+		tabWidth := DisplayWidth(Plain(tab))
+		used := DisplayWidth(Plain(Row{Cells: cells})) + sep
+		if available > 0 && used+tabWidth > available {
+			hidden = len(devices) - i
+			// The first tab itself may be wider than the terminal: crop it so
+			// the bar still fits, then add the marker below.
+			if i == 0 && used == 0 {
+				room := available - markerWidth
+				if room > 0 {
+					tab.Cells = []Cell{{Text: CutWidth(Plain(tab), room), Color: th.Text}}
+					cells = append(cells, tab.Cells...)
+				}
+			}
+			break
+		}
+		// Reserve room for the marker: a tab that fits alone but leaves no
+		// room for "… N more" would make the cropped bar overflow.
+		if hidden == 0 && i < len(devices)-1 && available > 0 && used+tabWidth+markerWidth > available {
+			hidden = len(devices) - i
+			break
+		}
 		if i > 0 {
 			cells = append(cells, Cell{Text: " " + TabSeparator + " ", Color: th.Track})
 		}
-		cells = append(cells, tabLabel(m, th, m.Device.Index == index, i+1).Cells...)
+		cells = append(cells, tab.Cells...)
+	}
+	if hidden > 0 {
+		marker := Row{Cells: []Cell{{Text: "  ▸ " + itoa(hidden) + " more", Color: th.Muted}}}
+		cells = append(cells, marker.Cells...)
 	}
 	return Row{Cells: cells}
+}
+
+// itoa is strconv.Itoa kept local so the tab bar stays dependency-free.
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	var buf [20]byte
+	i := len(buf)
+	for n > 0 {
+		i--
+		buf[i] = byte('0' + n%10)
+		n /= 10
+	}
+	if neg {
+		i--
+		buf[i] = '-'
+	}
+	return string(buf[i:])
 }
 
 // OverviewPanel draws one card per device: name, utilisation bar, memory

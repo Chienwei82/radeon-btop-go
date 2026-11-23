@@ -19,6 +19,8 @@ func TestDefaultHelpDocumentsEverySingleKeyBinding(t *testing.T) {
 		{"+ / -", []string{"+", "-"}, true},
 		{"s / S", []string{"s", "S"}, true},
 		{"up / down", []string{"up", "down"}, true},
+		{"pgup / pgdown", []string{"pgup", "pgdown"}, true},
+		{"home / end", []string{"home", "end"}, true},
 	}
 	grouped := map[string]bool{}
 	for _, g := range groups {
@@ -69,24 +71,9 @@ func TestFooterHintsUseOnlyDocumentedKeys(t *testing.T) {
 	for _, b := range KeyBindings {
 		documented[b.Key] = true
 	}
-	for _, h := range footerHints {
-		switch h.Key {
-		case "1-9/tab":
-			for _, k := range []string{"1", "9", "tab"} {
-				if !documented[k] {
-					t.Fatalf("footer hint %q advertises undocumented key %q", h.Key, k)
-				}
-			}
-		case "+-":
-			for _, k := range []string{"+", "-"} {
-				if !documented[k] {
-					t.Fatalf("footer hint %q advertises undocumented key %q", h.Key, k)
-				}
-			}
-		default:
-			if !documented[h.Key] {
-				t.Fatalf("footer hint %q advertises undocumented key %q", h.Label, h.Key)
-			}
+	for _, h := range footerHints(*NewViewState()) {
+		if !documented[h.Key] {
+			t.Fatalf("footer hint %q advertises undocumented key %q", h.Label, h.Key)
 		}
 	}
 }

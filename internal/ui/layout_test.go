@@ -262,6 +262,31 @@ func TestAlertNoticeReachesTheStatusLine(t *testing.T) {
 	}
 }
 
+// A notice too long for a narrow terminal is cut with an ellipsis, not sliced
+// off silently: the user must be able to see that the line was shortened.
+func TestStatusLineTruncatesWithAnEllipsis(t *testing.T) {
+	in := screenInput()
+	in.Notice = "a deliberately long notice that cannot fit in the available width of a narrow terminal"
+	in.Width, in.Height = 60, 40
+	var statusRow Row
+	for _, row := range RenderScreen(in) {
+		if plain := Plain(row); strings.HasPrefix(plain, "#") {
+			statusRow = row
+			break
+		}
+	}
+	if statusRow.Cells == nil {
+		t.Fatal("status line not found")
+	}
+	line := Plain(statusRow)
+	if DisplayWidth(line) > 60 {
+		t.Fatalf("status line = %d cells, want <= 60", DisplayWidth(line))
+	}
+	if !strings.Contains(line, "…") {
+		t.Fatalf("truncated status line carries no ellipsis: %q", line)
+	}
+}
+
 func TestNoAlertLeavesTheStatusLineAlone(t *testing.T) {
 	in := screenInput()
 	in.Width, in.Height = 120, 40

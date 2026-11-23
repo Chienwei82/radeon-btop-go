@@ -49,7 +49,9 @@ func TestMemoryGraphsShareOneRow(t *testing.T) {
 // A key is a target, not prose: it gets the accent and bold, the label stays
 // muted, and the two are separate runs so a terminal can show the difference.
 func TestKeyHintsPaintKeysApartFromTheirLabels(t *testing.T) {
-	row := keyHints(DefaultTheme, 100)
+	v := NewViewState()
+	v.ShowProcesses = true
+	row := keyHints(DefaultTheme, 100, *v)
 	if !strings.HasPrefix(Plain(row), "q quit") {
 		t.Fatalf("hint line = %q, want it to start with q quit", Plain(row))
 	}
@@ -64,6 +66,30 @@ func TestKeyHintsPaintKeysApartFromTheirLabels(t *testing.T) {
 	}
 	if !key || !label {
 		t.Fatalf("keys and labels are not styled apart: %#v", row.Cells)
+	}
+}
+
+// The footer tells the state of a toggle rather than reading the same either
+// way: "procs on" vs "procs off", "overview on" vs "overview".
+func TestFooterHintsReflectToggleState(t *testing.T) {
+	on := NewViewState()
+	on.ShowProcesses = true
+	on.Overview = true
+	onHints := Plain(keyHints(DefaultTheme, 200, *on))
+
+	off := NewViewState()
+	off.ShowProcesses = false
+	off.Overview = false
+	offHints := Plain(keyHints(DefaultTheme, 200, *off))
+
+	if !strings.Contains(onHints, "procs on") {
+		t.Fatalf("procs-on footer = %q, want \"procs on\"", onHints)
+	}
+	if !strings.Contains(offHints, "procs off") {
+		t.Fatalf("procs-off footer = %q, want \"procs off\"", offHints)
+	}
+	if !strings.Contains(onHints, "overview on") {
+		t.Fatalf("overview-on footer = %q, want \"overview on\"", onHints)
 	}
 }
 

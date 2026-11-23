@@ -37,4 +37,4 @@ up 1h 02m               every 1s  ·  sysfs
 │                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 #7  ·  metrics sysfs  ·  tick 1000 ms  ·  cpu N/A
-q quit · 1-9/tab GPU · o overview · m theme · +- interval · p procs · / filter · s sort · h help
+q quit · tab GPU · o overview · m theme · + interval · p procs on · / filter · s sort · h help

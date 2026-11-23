@@ -141,8 +141,8 @@ func RenderScreen(in LayoutInput) []Row {
 		out = append(out, Row{})
 	}
 
-	out = append(out, fitRow(statusLine(in, th), width))
-	out = append(out, fitRow(keyHints(th, width), width))
+	out = append(out, fitRowMarked(statusLine(in, th), width))
+	out = append(out, fitRow(keyHints(th, width, in.View), width))
 	return out
 }
 
@@ -375,7 +375,32 @@ func processBlock(in LayoutInput, th Theme, lines, width int) []Row {
 	}
 	if len(body) < lines-boxOverheadY {
 		sel := in.View.Selected
-		table := RenderTable(rows, in.View.Sort, TableConfig{
+		// Scroll the window so the selected row stays visible: the table is
+		// taller than the frame on a busy machine, and a selection that moves
+		// off-screen is a selection the user cannot see.
+		dataRows := lines - boxOverheadY - 1 // minus the title row
+		if dataRows < 1 {
+			dataRows = 1
+		}
+		window := rows
+		if sel != nil && len(rows) > dataRows {
+			selected := 0
+			for i, r := range rows {
+				if idOf(r.Process) == *sel {
+					selected = i
+					break
+				}
+			}
+			start := selected - dataRows/2
+			if start < 0 {
+				start = 0
+			}
+			if start+dataRows > len(rows) {
+				start = len(rows) - dataRows
+			}
+			window = rows[start : start+dataRows]
+		}
+		table := RenderTable(window, in.View.Sort, TableConfig{
 			Width: contentWidth, FullCommand: in.View.FullCommand, Selected: sel, Top: top, Theme: th,
 		})
 		for _, r := range table {
@@ -420,22 +445,95 @@ func statusLine(in LayoutInput, th Theme) Row {
 	return row
 }
 
-// footerHints is the curated key reference shown at the bottom of the
-// screen: the handful a user reaches for, in reading order. The full list is
-// one key away behind h, and a hint line that wraps is no longer a hint line.
-var footerHints = []struct {
+// fitRowMarked is fitRow with an ellipsis on a cut, for lines whose tail is
+// prose the user must see is missing (the status line) rather than a number
+// that may be dropped (a table cell). It is the difference between "the line
+// ends here" and "the line was shortened".
+func fitRowMarked(r Row, width int) Row {
+	if width <= 0 {
+		return r
+	}
+	total := 0
+	for _, c := range r.Cells {
+		total += DisplayWidth(c.Text)
+	}
+	if total <= width {
+		return r
+	}
+	// Cut the last cell that overflows, with an ellipsis, then drop the rest.
+	for i := len(r.Cells) - 1; i >= 0 && total > width; i-- {
+		cellWidth := DisplayWidth(r.Cells[i].Text)
+		allowed := cellWidth - (total - width)
+		if allowed <= 0 {
+			r.Cells = r.Cells[:i]
+			total -= cellWidth
+			continue
+		}
+		r.Cells[i].Text = CutWidth(r.Cells[i].Text, allowed)
+		total -= cellWidth - DisplayWidth(r.Cells[i].Text)
+		r.Cells = r.Cells[:i+1]
+	}
+	return r
+}
+
+// footerKeyOrder is the reading order of the keys the footer advertises, and
+// the short label each one carries there. The footer is a curated subset of
+// KeyBindings -- a hint line that wraps is no longer a hint line -- but every
+// key it names is looked up in KeyBindings so a binding cannot drift out of
+// the footer unnoticed.
+var footerKeyOrder = []struct {
 	Key   string
 	Label string
 }{
 	{"q", "quit"},
-	{"1-9/tab", "GPU"},
+	{"tab", "GPU"},
 	{"o", "overview"},
 	{"m", "theme"},
-	{"+-", "interval"},
+	{"+", "interval"},
 	{"p", "procs"},
 	{"/", "filter"},
 	{"s", "sort"},
 	{"h", "help"},
+}
+
+// footerHints resolves footerKeyOrder against KeyBindings, appending a state
+// marker to the label of the keys whose effect is a toggle: "procs on/off",
+// "tree on/off", "idle on/off", "overview on/off". A toggle that reads the
+// same in both states is a toggle the user cannot tell the state of.
+func footerHints(v ViewState) []struct {
+	Key   string
+	Label string
+} {
+	binding := func(key string) (string, bool) {
+		for _, b := range KeyBindings {
+			if b.Key == key {
+				return b.Description, true
+			}
+		}
+		return "", false
+	}
+	state := map[string]string{
+		"o": map[bool]string{true: "overview on", false: "overview"}[v.Overview],
+		"p": map[bool]string{true: "procs on", false: "procs off"}[v.ShowProcesses],
+	}
+	out := make([]struct {
+		Key   string
+		Label string
+	}, 0, len(footerKeyOrder))
+	for _, f := range footerKeyOrder {
+		if _, ok := binding(f.Key); !ok {
+			continue // a footer key with no binding is a broken promise
+		}
+		label := f.Label
+		if s, ok := state[f.Key]; ok {
+			label = s
+		}
+		out = append(out, struct {
+			Key   string
+			Label string
+		}{f.Key, label})
+	}
+	return out
 }
 
 // keyHints is the fixed one-line key reference at the bottom.
@@ -444,10 +542,11 @@ var footerHints = []struct {
 // label stays muted. That is what makes the line scannable as keys rather
 // than as a sentence, and it survives --no-color as a readable "q quit"
 // because the separation is in the text, not only in the colour.
-func keyHints(th Theme, width int) Row {
-	cells := make([]Cell, 0, len(footerHints)*3)
+func keyHints(th Theme, width int, v ViewState) Row {
+	hints := footerHints(v)
+	cells := make([]Cell, 0, len(hints)*3)
 	used := 0
-	for i, h := range footerHints {
+	for i, h := range hints {
 		group := DisplayWidth(h.Key) + 1 + DisplayWidth(h.Label)
 		sep := 0
 		if i > 0 {

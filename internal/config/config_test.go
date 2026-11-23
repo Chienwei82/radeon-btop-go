@@ -114,6 +114,20 @@ func TestOutOfRangeIntervalIsClamped(t *testing.T) {
 	}
 }
 
+// WCAG 2.2.2 caps blinking at three times per second, so flash_hz above 3 is
+// clamped and reported rather than honoured.
+func TestFlashHzClampsToWCAGBlinkCeiling(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "gputop.yaml")
+	write(t, path, "alerts:\n  flash_hz: 20\n")
+	c := Load(path)
+	if c.Alerts.FlashHz != 3 {
+		t.Fatalf("flash_hz = %v, want 3", c.Alerts.FlashHz)
+	}
+	if !hasWarning(c, "out of range") {
+		t.Fatalf("warnings = %v, want an 'out of range' warning", c.Warnings)
+	}
+}
+
 func TestInvalidKindFallsBackToAuto(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "gputop.yaml")
 	write(t, path, "gpu:\n  kind: sideways\n")

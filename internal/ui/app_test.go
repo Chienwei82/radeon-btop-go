@@ -58,6 +58,14 @@ func press(a *App, key string) tea.Cmd {
 		return a.handleKey(tea.KeyPressMsg{Code: tea.KeyEnter})
 	case "backspace":
 		return a.handleKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	case "pgup":
+		return a.handleKey(tea.KeyPressMsg{Code: tea.KeyPgUp})
+	case "pgdown":
+		return a.handleKey(tea.KeyPressMsg{Code: tea.KeyPgDown})
+	case "home":
+		return a.handleKey(tea.KeyPressMsg{Code: tea.KeyHome})
+	case "end":
+		return a.handleKey(tea.KeyPressMsg{Code: tea.KeyEnd})
 	default:
 		r := []rune(key)[0]
 		return a.handleKey(tea.KeyPressMsg{Code: r, Text: key})
@@ -369,5 +377,135 @@ func TestStyleCellAppliesBoldAndReverseTogether(t *testing.T) {
 	}
 	if !strings.Contains(got, "1") || !strings.Contains(got, "7") {
 		t.Fatalf("styleCell(bold|reverse) = %q, want both bold and reverse enabled", got)
+	}
+}
+
+func pageApp(t *testing.T, procs int) *App {
+	t.Helper()
+	list := make([]model.GpuProcess, 0, procs)
+	for i := 0; i < procs; i++ {
+		list = append(list, appProcess(2000+i, "client"))
+	}
+	app := NewApp(AppOptions{Config: appConfig(false)})
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app.Update(snapshotMsg{snap: appSnapshot(fullMetrics(), list...), ok: true})
+	return app
+}
+
+func selectedPID(app *App) int {
+	if app.view.Selected == nil {
+		return -1
+	}
+	for _, p := range app.snap.Processes {
+		if idOf(p) == *app.view.Selected {
+			return p.PID
+		}
+	}
+	return -1
+}
+
+func TestHomeAndEndJumpToTheEndsOfTheList(t *testing.T) {
+	app := pageApp(t, 30)
+	press(app, "end")
+	if got := selectedPID(app); got != 2029 {
+		t.Fatalf("end selected pid %d, want the last row 2029", got)
+	}
+	press(app, "home")
+	if got := selectedPID(app); got != 2000 {
+		t.Fatalf("home selected pid %d, want the first row 2000", got)
+	}
+}
+
+func TestPageDownMovesByOneVisiblePage(t *testing.T) {
+	app := pageApp(t, 60)
+	press(app, "home")
+	press(app, "pgdown")
+	want := 2000 + max(1, app.tablePageSize)
+	if got := selectedPID(app); got != want {
+		t.Fatalf("pgdown selected pid %d, want %d (page size %d)", got, want, app.tablePageSize)
+	}
+	press(app, "pgup")
+	if got := selectedPID(app); got != 2000 {
+		t.Fatalf("pgup selected pid %d, want back to 2000", got)
+	}
+}
+
+func TestPageSizeEstimateMatchesTheLayoutBudget(t *testing.T) {
+	// 40 rows, one device: header 3 + footer 2 leave 35; the table is a third.
+	if got := estimatePageSize(120, 40, 1); got != 11 {
+		t.Fatalf("pageSize = %d, want 11", got)
+	}
+	// Below the short-height floor there is no table to page through.
+	if got := estimatePageSize(120, 19, 1); got != 0 {
+		t.Fatalf("pageSize on a short terminal = %d, want 0", got)
+	}
+}
+
+func TestHelpOverlayClosesOnQAndHAsWellAsEsc(t *testing.T) {
+	for _, key := range []string{"q", "h", "esc"} {
+		app := NewApp(AppOptions{Config: appConfig(false)})
+		app.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
+		press(app, "h")
+		if app.overlay != overlayHelp {
+			t.Fatalf("%q: overlay did not open: %v", key, app.overlay)
+		}
+		press(app, key)
+		if app.overlay != overlayNone {
+			t.Fatalf("%q did not close the help: %v", key, app.overlay)
+		}
+	}
+}
+
+func TestHelpOverlayScrollsOnShortTerminals(t *testing.T) {
+	app := NewApp(AppOptions{Config: appConfig(false)})
+	app.Update(tea.WindowSizeMsg{Width: 100, Height: 14})
+	press(app, "h")
+	if app.overlay != overlayHelp {
+		t.Fatalf("overlay did not open")
+	}
+	before := app.helpScroll
+	press(app, "end")
+	if app.helpScroll <= before {
+		t.Fatalf("end did not scroll the help (before %d, after %d)", before, app.helpScroll)
+	}
+	press(app, "home")
+	if app.helpScroll != 0 {
+		t.Fatalf("home did not reset the help scroll: %d", app.helpScroll)
+	}
+}
+
+func TestMouseClickOnTabSwitchesDevice(t *testing.T) {
+	second := fullMetrics()
+	second.Device.Index = 1
+	second.Device.Name = "AMD Radeon Second"
+	app := NewApp(AppOptions{Config: appConfig(false)})
+	app.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	app.Update(snapshotMsg{snap: model.GpuSnapshot{
+		Sequence: 1, Devices: []model.AmdgpuMetrics{fullMetrics(), second},
+		VisibleProcessCount: 0, TotalProcessCount: 0,
+	}, ok: true})
+
+	// The tab bar is row 3 (after the three-line header). Click the second tab.
+	spans := TabSpans(app.snap.Devices)
+	app.Update(tea.MouseClickMsg{X: spans[1].Start, Y: 3, Button: tea.MouseLeft})
+	if app.view.DeviceIndex != 1 {
+		t.Fatalf("device index = %d, want 1 after clicking the second tab", app.view.DeviceIndex)
+	}
+}
+
+func TestMouseWheelScrollsTheSelection(t *testing.T) {
+	app := pageApp(t, 60)
+	press(app, "home")
+	if got := selectedPID(app); got != 2000 {
+		t.Fatalf("home selected pid %d, want 2000", got)
+	}
+	app.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown, X: 0, Y: 0})
+	want := 2000 + max(1, app.tablePageSize)
+	if got := selectedPID(app); got != want {
+		t.Fatalf("wheel-down selected pid %d, want %d", got, want)
+	}
+	app.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp, X: 0, Y: 0})
+	if got := selectedPID(app); got != 2000 {
+		t.Fatalf("wheel-up selected pid %d, want back to 2000", got)
 	}
 }

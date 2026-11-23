@@ -20,10 +20,10 @@ func TestAllThirtyBindingsAreHandled(t *testing.T) {
 			t.Fatalf("binding %q (%s) not handled", b.Key, b.Description)
 		}
 	}
-	// The canonical 30: q, tab, shift+tab, o, /, h/?, 1-9, R, +/-, m, p,
-	// s/S, r, esc, a, t, c, up/down, k.
-	if len(KeyBindings) != 30 {
-		t.Fatalf("bindings = %d, want 30", len(KeyBindings))
+	// The canonical 34: q, tab, shift+tab, o, /, h/?, 1-9, R, +/-, m, p,
+	// s/S, r, esc, a, t, c, up/down, pgup/pgdown, home/end, k.
+	if len(KeyBindings) != 34 {
+		t.Fatalf("bindings = %d, want 34", len(KeyBindings))
 	}
 }
 

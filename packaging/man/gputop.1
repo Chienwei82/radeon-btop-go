@@ -144,6 +144,14 @@ Show the full command line instead of the short name.
 , \fBdown\fR
 Move the process selection.
 .TP
+.B pgup
+, \fBpgdown\fR
+Scroll the process list by a visible page.
+.TP
+.B home
+, \fBend\fR
+Jump to the first / last process in the list.
+.TP
 .B k
 Signal the selected process. Disabled unless \fIprocess.allow_kill\fR is
 true, and always asks for confirmation naming the target.
@@ -151,6 +159,9 @@ true, and always asks for confirmation naming the target.
 .B h
 , \fB?\fR
 Open or close the help overlay.
+.TP
+.B mouse
+Click a GPU tab to focus it; scroll the wheel to move the process selection.
 .SH FILES
 .TP
 .I ~/.config/gputop/gputop.yaml

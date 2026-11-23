@@ -63,16 +63,24 @@ type App struct {
 	history []model.GpuSnapshot
 
 	width, height int
-	overlay       overlayKind
-	filterBuffer  string
-	confirm       *model.GpuProcess
-	alerts        model.AlertState
-	flashOn       bool
-	status        string
-	start         time.Time
-	lastRecorded  time.Time
-	stateDirty    bool
-	shutdown      bool
+	// tablePageSize is the number of process rows the table can show at the
+	// current terminal height, recomputed on resize. PageUp/PageDown move the
+	// selection by this many rows; it is the same value the layout gives the
+	// table, so a page is what the user can actually see.
+	tablePageSize int
+	// helpScroll is the first visible line of the help overlay, so a terminal
+	// too short to show every binding can still reach the ones at the bottom.
+	helpScroll   int
+	overlay      overlayKind
+	filterBuffer string
+	confirm      *model.GpuProcess
+	alerts       model.AlertState
+	flashOn      bool
+	status       string
+	start        time.Time
+	lastRecorded time.Time
+	stateDirty   bool
+	shutdown     bool
 	// styles caches one resolved lipgloss style per colour key. A repaint
 	// touches every cell; rebuilding (and re-parsing) a style per cell was
 	// pure repetition over a closed palette (theme keys + gradient stops).
@@ -165,6 +173,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m := msg.(type) {
 	case tea.WindowSizeMsg:
 		a.width, a.height = m.Width, m.Height
+		a.tablePageSize = estimatePageSize(a.width, a.height, a.deviceCount())
 		return a, nil
 	case snapshotMsg:
 		if !m.ok {
@@ -177,8 +186,48 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, flashCmd(a.flashInterval())
 	case tea.KeyPressMsg:
 		return a, a.handleKey(m)
+	case tea.MouseClickMsg:
+		return a, a.handleMouseClick(m)
+	case tea.MouseWheelMsg:
+		return a, a.handleMouseWheel(m)
 	}
 	return a, nil
+}
+
+// handleMouseClick routes a click: a device tab switches the focused GPU, a
+// click on the help overlay closes it (a modal is dismissed by clicking
+// outside its box). Clicks on the process table are handled by row in a later
+// pass; for now they are ignored rather than guessed at.
+func (a *App) handleMouseClick(m tea.MouseClickMsg) tea.Cmd {
+	if a.snap != nil && len(a.snap.Devices) > 1 && m.Y == a.tabBarRow() {
+		if pos := DeviceAt(a.snap.Devices, m.X); pos >= 0 {
+			a.view.DeviceIndex = a.snap.Devices[pos].Device.Index
+			a.stateDirty = true
+		}
+	}
+	return nil
+}
+
+// tabBarRow is the Y row the device tab bar sits on: after the header, which
+// is three lines when a device is present. Returns -1 when there is no header.
+func (a *App) tabBarRow() int {
+	if a.snap == nil || len(a.snap.Devices) == 0 {
+		return -1
+	}
+	return 3
+}
+
+// handleMouseWheel scrolls the process selection, the same way PageUp/PageDown
+// does: the wheel is a page at a time, not a line at a time, because the table
+// is already windowed to what fits.
+func (a *App) handleMouseWheel(m tea.MouseWheelMsg) tea.Cmd {
+	switch m.Mouse().Button {
+	case tea.MouseWheelUp:
+		a.moveSelection(-max(1, a.tablePageSize))
+	case tea.MouseWheelDown:
+		a.moveSelection(max(1, a.tablePageSize))
+	}
+	return nil
 }
 
 // applySnapshot adopts one sample: on screen, in the graphs, in the alerts,
@@ -241,12 +290,34 @@ func (a *App) handleKey(msg tea.KeyPressMsg) tea.Cmd {
 	case overlayKill:
 		return a.handleKillKey(msg)
 	case overlayHelp:
-		if msg.String() == "esc" {
+		switch msg.String() {
+		case "esc", "q", "h", "?":
 			a.overlay = overlayNone
+		case "pgdown":
+			a.scrollHelp(1)
+		case "pgup":
+			a.scrollHelp(-1)
+		case "end":
+			a.scrollHelp(1 << 30)
+		case "home":
+			a.scrollHelp(-1 << 30)
 		}
 		return nil
 	}
 	return a.applyAction(a.view.HandleKey(msg.String()))
+}
+
+// scrollHelp moves the help overlay by delta lines, clamped to the content so
+// a short reference never scrolls past its own end.
+func (a *App) scrollHelp(delta int) {
+	entries := DefaultHelp(control.HelpText(a.opts.Config.Process.AllowKill), a.blocksNote())
+	total := len(entries) + 1 // the "esc close" line
+	visible := a.height - boxOverheadY
+	if visible < 1 {
+		visible = 1
+	}
+	maxScroll := max(0, total-visible)
+	a.helpScroll = min(max(a.helpScroll+delta, 0), maxScroll)
 }
 
 // applyAction performs the side effect a key asked for. Pure view-state
@@ -288,6 +359,14 @@ func (a *App) applyAction(action ViewAction) tea.Cmd {
 		a.moveSelection(1)
 	case ActionSelectPrev:
 		a.moveSelection(-1)
+	case ActionSelectPageDown:
+		a.moveSelection(max(1, a.tablePageSize))
+	case ActionSelectPageUp:
+		a.moveSelection(-max(1, a.tablePageSize))
+	case ActionSelectFirst:
+		a.moveSelectionTo(0)
+	case ActionSelectLast:
+		a.moveSelectionTo(1 << 30)
 	case ActionUnknown:
 	}
 	return nil
@@ -469,6 +548,48 @@ func (a *App) moveSelection(step int) {
 	a.view.Selected = &id
 }
 
+// moveSelectionTo jumps the selection to an absolute row index (clamped).
+func (a *App) moveSelectionTo(index int) {
+	if a.snap == nil {
+		return
+	}
+	rows := BuildRows(a.snap.Processes, a.view.Sort, a.view.Filter, a.view.Tree)
+	if len(rows) == 0 {
+		a.view.Selected = nil
+		return
+	}
+	next := min(max(index, 0), len(rows)-1)
+	id := idOf(rows[next].Process)
+	a.view.Selected = &id
+}
+
+// deviceCount is how many devices the current snapshot reports.
+func (a *App) deviceCount() int {
+	if a.snap == nil {
+		return 0
+	}
+	return len(a.snap.Devices)
+}
+
+// estimatePageSize mirrors the layout's table budget (layout.go: the table
+// gets a third of what the header, tabs and footer leave). It is only used to
+// turn PageUp/PageDown into a visible-page jump; the renderer stays the source
+// of truth for what is actually drawn.
+func estimatePageSize(width, height, devices int) int {
+	const headerLines = 3
+	rest := height - headerLines - footerLines
+	if devices > 1 {
+		rest-- // the tab bar row
+	}
+	if rest < 4 {
+		rest = 4
+	}
+	if height < ShortHeight || rest < 8 {
+		return 0
+	}
+	return rest / 3
+}
+
 // focusRelative cycles the focused GPU, wrapping at both ends.
 func (a *App) focusRelative(step int) {
 	if a.snap == nil || len(a.snap.Devices) == 0 {
@@ -554,7 +675,25 @@ func (a *App) View() tea.View {
 
 	view := tea.NewView(a.renderRows(rows, width, height))
 	view.AltScreen = true
+	view.MouseMode = tea.MouseModeCellMotion
 	return view
+}
+
+// scrollRows returns rows[start:] when start is a valid offset, else rows
+// unchanged. It keeps the top border (row 0) pinned so the frame still reads
+// as a frame while the body scrolls underneath it.
+func scrollRows(rows []Row, start int) []Row {
+	if start <= 0 || start >= len(rows) {
+		return rows
+	}
+	// Keep the top border, skip `start` body rows, keep the bottom border.
+	if len(rows) < 2 {
+		return rows
+	}
+	out := make([]Row, 0, len(rows)-start)
+	out = append(out, rows[0])
+	out = append(out, rows[1+start:]...)
+	return out
 }
 
 // withOverlay centres the open modal over the screen. It replaces the lines it
@@ -563,7 +702,7 @@ func (a *App) withOverlay(rows []Row, width, height int, th Theme) []Row {
 	var box []Row
 	switch a.overlay {
 	case overlayHelp:
-		box = HelpOverlay(DefaultHelp(control.HelpText(a.opts.Config.Process.AllowKill), a.blocksNote()), th)
+		box = scrollRows(HelpOverlay(DefaultHelp(control.HelpText(a.opts.Config.Process.AllowKill), a.blocksNote()), th), a.helpScroll)
 	case overlayFilter:
 		box = FilterPrompt(a.filterBuffer, th)
 	case overlayKill:
