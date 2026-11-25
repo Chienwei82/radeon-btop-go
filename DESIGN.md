@@ -194,9 +194,10 @@ separation ("q quit"), which is why the hint line is not a single styled run.
 Process table: the pure `procview` logic (sort, filter, tree, idle-hiding,
 selection by identity, top-marker `▶`) feeds `RenderTable`; bubbles' table
 widget was not adopted because rebuilding rows from a snapshot is cheaper and
-the identity-selection rules live in the domain, not the widget. Braille:
-`BRAILLE_BITS` verbatim, gaps preserved, per-dot-column accumulation, golden
-tests at explicit sizes. Themes: 5 palettes; 255-stop truecolor ramp (odd
+the identity-selection rules live in the domain, not the widget. Area chart:
+`AreaText` rasterises series into Unicode block glyphs (`▁▂▃▄▅▆▇█`) with
+per-cell gradient colouring, gaps preserved, golden tests at explicit sizes.
+Themes: 5 palettes; 255-stop truecolor ramp (odd
 count → 50% lands on mid), 25-stop 256-colour cube-snapped ramp.
 
 ### The event loop (`internal/ui/app.go`)
