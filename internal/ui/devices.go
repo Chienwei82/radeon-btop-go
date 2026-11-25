@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gputop/gputop-go/internal/model"
@@ -182,33 +183,10 @@ func GPUTabs(devices []model.AmdgpuMetrics, th Theme, index, available int) Row 
 		cells = append(cells, tab.Cells...)
 	}
 	if hidden > 0 {
-		marker := Row{Cells: []Cell{{Text: "  ▸ " + itoa(hidden) + " more", Color: th.Muted}}}
+		marker := Row{Cells: []Cell{{Text: "  ▸ " + strconv.Itoa(hidden) + " more", Color: th.Muted}}}
 		cells = append(cells, marker.Cells...)
 	}
 	return Row{Cells: cells}
-}
-
-// itoa is strconv.Itoa kept local so the tab bar stays dependency-free.
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-	}
-	var buf [20]byte
-	i := len(buf)
-	for n > 0 {
-		i--
-		buf[i] = byte('0' + n%10)
-		n /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
 }
 
 // OverviewPanel draws one card per device: name, utilisation bar, memory
