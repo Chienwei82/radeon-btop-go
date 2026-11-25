@@ -6,9 +6,13 @@ import "github.com/gputop/gputop-go/internal/model"
 type ScaleMode int
 
 const (
-	// ScalePercent fixes the axis to 0-100.
+	// ScalePercent fixes the axis to 0-100. This is what graphRows uses.
 	ScalePercent ScaleMode = iota
-	// ScaleAuto fits the data.
+	// ScaleAuto fits the axis to the data range.
+	//
+	// Reserved: exercised only by tests. graphRows always passes ScalePercent,
+	// so no production path selects this today. Kept as a tested capability so
+	// an auto-fitting mode can be wired without rediscovering the edge cases.
 	ScaleAuto
 )
 
@@ -37,9 +41,10 @@ var blockRunes = [8]rune{'▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'}
 // samples) remain empty (space, HasValue=false) — gaps are never
 // interpolated.
 //
-// The gradient colours each cell according to its value, creating a
-// vertical heat-map effect. When the gradient is zero-valued (no-colour
-// mode), cells still carry visible block glyphs.
+// The gradient colours each column according to its peak value; the colour is
+// constant down a column, so the chart reads as a per-column heat band rather
+// than a vertical ramp. When the gradient is zero-valued (no-colour mode),
+// cells still carry visible block glyphs.
 //
 //   - samples: values oldest-first; nil is a gap.
 //   - width:   columns across.
@@ -107,17 +112,32 @@ func AreaText(samples []*float64, width, height int, gradient Gradient, scale Sc
 
 	// Build the grid bottom-up.
 	grid := make([][]AreaCell, height)
+	for row := range grid {
+		grid[row] = make([]AreaCell, width)
+	}
 	subRows := height * 8 // total sub-rows for partial-block granularity
 
-	for row := range height {
-		grid[row] = make([]AreaCell, width)
-		for col := range width {
+	for col := range width {
+		// Resolve this column once: its peak, whether it has data, and the
+		// gradient colour (constant down the column). Hoisting the colour out
+		// of the row loop avoids recomputing gradient.At for every filled cell.
+		var colColor string
+		var filled int
+		if has[col] {
+			norm := (peaks[col] - lo) / span
+			norm = min(1.0, max(0.0, norm))
+			// How many sub-rows from the bottom are filled. A present sample
+			// always fills at least one sub-row: a real 0% must render as the
+			// lowest block, never as a gap indistinguishable from an absent
+			// (nil) reading.
+			filled = max(1, model.RoundHalfEven(norm*float64(subRows)))
+			if gradient.Len() > 0 {
+				colColor = gradient.At(norm * 100)
+			}
+		}
+		for row := range height {
 			cell := AreaCell{Block: ' '}
 			if has[col] {
-				norm := (peaks[col] - lo) / span
-				norm = min(1.0, max(0.0, norm))
-				// How many sub-rows from the bottom are filled.
-				filled := model.RoundHalfEven(norm * float64(subRows))
 				// This row covers sub-rows [row*8, row*8+8) from the top.
 				// Convert to bottom-up: sub-row from bottom = subRows - 1 - (row*8 + subRow).
 				rowTop := row * 8
@@ -134,9 +154,7 @@ func AreaText(samples []*float64, width, height int, gradient Gradient, scale Sc
 						cell.Block = blockRunes[partial-1]
 					}
 					cell.HasValue = true
-					if gradient.Len() > 0 {
-						cell.Color = gradient.At(norm * 100)
-					}
+					cell.Color = colColor
 				}
 			}
 			grid[row][col] = cell

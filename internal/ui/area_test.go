@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-// ── RED phase: AreaText does not exist yet ──────────────────────────────
-
 func TestAreaEmptySeriesShowsBlankCells(t *testing.T) {
 	th := GetTheme("default")
 	grad := NewGradient(th, true)
@@ -171,4 +169,53 @@ func TestAreaNoColorModeStillHasBlocks(t *testing.T) {
 	}
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────
+func TestAreaZeroValueShowsLowestBlock(t *testing.T) {
+	// A real 0% reading must be visible as the lowest block, not confused
+	// with an absent (nil) sample. Honest numbers: present-but-zero is data.
+	th := GetTheme("default")
+	grad := NewGradient(th, true)
+	zero := 0.0
+	samples := []*float64{&zero}
+	cells := AreaText(samples, 1, 1, grad, ScalePercent)
+	c := cells[0][0]
+	if !c.HasValue {
+		t.Fatalf("0%% cell has no value: %#v", c)
+	}
+	if c.Block != '▁' {
+		t.Fatalf("0%% block = %q, want ▁", c.Block)
+	}
+}
+
+func TestAreaZeroValueNotConfusedWithGap(t *testing.T) {
+	// A present 0% and an absent (nil) sample must render differently.
+	th := GetTheme("default")
+	grad := NewGradient(th, true)
+	zero := 0.0
+	samples := []*float64{&zero, nil}
+	cells := AreaText(samples, 2, 1, grad, ScalePercent)
+	if !cells[0][0].HasValue || cells[0][0].Block != '▁' {
+		t.Fatalf("present 0%% = %#v, want visible ▁", cells[0][0])
+	}
+	if cells[0][1].HasValue || cells[0][1].Block != ' ' {
+		t.Fatalf("nil gap = %#v, want empty space", cells[0][1])
+	}
+}
+
+// ── Benchmarks ───────────────────────────────────────────────────────────
+
+// BenchmarkAreaText measures the rasteriser at a typical graph size (the GPU
+// busy chart is ~50 columns wide and a handful of rows tall).
+func BenchmarkAreaText(b *testing.B) {
+	th := GetTheme("default")
+	grad := NewGradient(th, false)
+	samples := make([]*float64, 300)
+	for i := range samples {
+		v := float64((i * 37) % 100)
+		samples[i] = &v
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = AreaText(samples, 50, 8, grad, ScalePercent)
+	}
+}

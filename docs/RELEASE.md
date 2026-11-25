@@ -21,7 +21,7 @@ Una release estable publica assets propios: tarball + AppImage + checksum.
 `cmd/gputop/main.go`:
 
 ```go
-var version = "1.3.0"
+var version = "1.4.0"
 ```
 
 La version es la fuente de verdad. `scripts/check_packaging.sh` la replica en
@@ -32,22 +32,23 @@ cuatro lugares y falla si hay desalineacion ("One version, four places"):
 3. `packaging/arch/PKGBUILD` — `pkgver=<version>`.
 4. `Containerfile` — `ARG VERSION=<version>`.
 
-## Procedimiento para publicar una release (p. ej. `v1.3.0`)
+## Procedimiento para publicar una release (p. ej. `v1.4.0`)
 
-1. Crear rama de release (p. ej. `release/v1.3.0`) desde `main`.
+1. Crear rama de release (p. ej. `release/v1.4.0`) desde `main`.
 2. Bump de version en los cuatro lugares, mas las referencias de docs
    (`README.md`, `docs/DEPLOY.md`, `docs/RELEASE.md`).
 3. Gates: `go test ./...`, `./scripts/check_packaging.sh`, vet/lint/gofmt/build.
-4. Commit (`release: bump version to 1.3.0`), pull request contra `main` y merge.
+4. Commit (`release: bump version to 1.4.0`), pull request contra `main` y merge.
 5. El push a `main` dispara el workflow `release`, que construye y publica
-   `v1.3.0`.
-6. Verificar: `gh release view v1.3.0`.
+   `v1.4.0`.
+6. Verificar: `gh release view v1.4.0`.
 
 ## Releases publicados
 
 | Tag | Tipo | Publicada | Commit |
 | --- | --- | --- | --- |
-| `v1.3.0` | estable (Latest) | 2026-11-19 | — |
+| `v1.4.0` | estable (Latest) | 2026-11-24 | — |
+| `v1.3.0` | estable | 2026-11-19 | `ecfb0ca` |
 | `v1.2.0` | estable | 2026-10-29 | `f6d8bcf` |
 | `v1.2.0-pr.5` | prerelease | 2026-10-29 | PR #5 |
 | `v1.1.0` | estable | 2026-10-20 | `bcc8fa7` |
