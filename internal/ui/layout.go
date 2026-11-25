@@ -291,14 +291,14 @@ func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, wi
 	utilH := max(1, graphCells*2/3)
 	memH := max(1, graphCells-utilH)
 
-	out := graphRows(busySeries(in.History, deviceIndex(device)), utilH, width)
+	out := graphRows(busySeries(in.History, deviceIndex(device)), utilH, width, th)
 	for _, r := range utilisation {
 		out = append(out, fitRow(r, width))
 	}
 	if memory {
 		half := (width - 1) / 2
 		other := width - half - 1
-		vram := PanelBox("VRAM", graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.VRAM }), memH, half-boxOverheadX), half, th)
+		vram := PanelBox("VRAM", graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.VRAM }), memH, half-boxOverheadX, th), half, th)
 		// The GTT box carries the pool figure as a number plus the overclock
 		// indicators, and the graph spends the height those rows cost.
 		gttBody := []Row{}
@@ -309,7 +309,7 @@ func graphBlock(device *model.AmdgpuMetrics, in LayoutInput, th Theme, lines, wi
 		if len(gttBody) > 0 {
 			gttGraphH = max(1, memH-len(gttBody))
 		}
-		gttBody = append(gttBody, graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.GTT }), gttGraphH, other-boxOverheadX)...)
+		gttBody = append(gttBody, graphRows(poolSeries(in.History, deviceIndex(device), func(m model.AmdgpuMetrics) model.MemoryPool { return m.GTT }), gttGraphH, other-boxOverheadX, th)...)
 		gtt := PanelBox("GTT", gttBody, other, th)
 		out = append(out, joinColumns(vram, gtt, half, other, 1)...)
 	}
@@ -570,16 +570,25 @@ func keyHints(th Theme, width int, v ViewState) Row {
 	return fitRow(Row{Cells: cells}, width)
 }
 
-// graphRows rasterises a series into height lines of braille text.
-func graphRows(samples []*float64, height, width int) []Row {
+// graphRows rasterises a series into height lines of area-chart cells.
+func graphRows(samples []*float64, height, width int, th Theme) []Row {
 	if width <= 0 || height <= 0 {
 		return nil
 	}
-	grad := Gradient{}
-	lines := strings.Split(BrailleText(samples, width, height, grad, "", ScalePercent), "\n")
-	out := make([]Row, 0, len(lines))
-	for _, line := range lines {
-		out = append(out, Row{Cells: []Cell{{Text: line}}})
+	grad := NewGradient(th, false)
+	grid := AreaText(samples, width, height, grad, ScalePercent)
+	out := make([]Row, 0, len(grid))
+	for _, row := range grid {
+		cells := make([]Cell, 0, len(row))
+		for _, c := range row {
+			text := string(c.Block)
+			if c.Color != "" {
+				cells = append(cells, Cell{Text: text, Color: c.Color})
+			} else {
+				cells = append(cells, Cell{Text: text})
+			}
+		}
+		out = append(out, Row{Cells: cells})
 	}
 	return out
 }
@@ -647,34 +656,30 @@ func deviceIndex(m *model.AmdgpuMetrics) int {
 
 // busySeries is the GPU busy percentage per retained sample.
 func busySeries(history []model.GpuSnapshot, index int) []*float64 {
-	out := make([]*float64, 0, len(history))
-	for _, snap := range history {
+	out := make([]*float64, len(history))
+	for i, snap := range history {
 		m := snap.DeviceByIndex(index)
 		if m == nil || m.GpuBusyPercent == nil {
-			out = append(out, nil)
 			continue
 		}
 		v := float64(*m.GpuBusyPercent)
-		out = append(out, &v)
+		out[i] = &v
 	}
 	return out
 }
 
 // poolSeries is one memory pool's fill percentage per retained sample.
 func poolSeries(history []model.GpuSnapshot, index int, pick func(model.AmdgpuMetrics) model.MemoryPool) []*float64 {
-	out := make([]*float64, 0, len(history))
-	for _, snap := range history {
+	out := make([]*float64, len(history))
+	for i, snap := range history {
 		m := snap.DeviceByIndex(index)
 		if m == nil {
-			out = append(out, nil)
 			continue
 		}
 		if p := pick(*m).Percent(); p != nil {
 			v := float64(*p)
-			out = append(out, &v)
-			continue
+			out[i] = &v
 		}
-		out = append(out, nil)
 	}
 	return out
 }

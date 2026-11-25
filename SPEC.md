@@ -41,7 +41,7 @@ delivered as one static Go binary.
 
 1. Engine-level per-process detail (gfx/compute/DMA/enc/dec).
 2. Many GPUs at once, not just one.
-3. btop-style presentation: braille sparklines, dual memory bars.
+3. btop-style presentation: area-chart sparklines, dual memory bars.
 4. Clean `N/A` semantics (`nil`, never `0`).
 5. Modern delivery: one binary, podman-built, `go test` suite.
 
@@ -197,7 +197,7 @@ root:render); `--blocks` only stats the path for `-p`.
 
 ## 8. User interface
 
-Panels: header (identity, BDF, driver, index), utilisation (busy % braille),
+Panels: header (identity, BDF, driver, index), utilisation (busy % area chart),
 memory (VRAM/GTT bars; GTT leads on iGPU), clocks (sclk/mclk vs max),
 sensors (3 temps, power vs cap, fan, perf level, profile, throttle, PCIe),
 process table, footer (interval, sources, hints, warnings). Optional:

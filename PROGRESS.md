@@ -717,8 +717,9 @@ squash-merged, so it was not an ancestor; its one commit that had never reached
 `main` (the approval documentation) was cherry-picked here before deletion.
 
 ---
-- `BRAILLE_BITS` is the single source of truth for the dot layout (dots 1–3
-  and 7 form the LEFT column).
+- `AreaText` in `internal/ui/area.go` is the single source of truth for the
+  area-chart rasteriser: Unicode block glyphs (`▁▂▃▄▅▆▇█`), per-cell gradient
+  colouring, gaps preserved, golden tests at explicit sizes.
 - radeontop splits diagnostics across stdout AND stderr; drain both.
 - Python's `round()` is **half-to-even**; Go's `int(x + 0.5)` is half-up. Any
   ported `round(...)` needs a deliberate half-to-even helper, not the idiom.
